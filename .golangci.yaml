@@ -1,0 +1,15 @@
+version: "2"
+linters:
+  settings:
+    tagalign:
+      align: true
+      strict: true
+    depguard:
+      rules:
+        main:
+          allow:
+            - $gostd
+            - github.com/ilyakaznacheev/cleanenv
+  default: all
+  enable:
+    - canonicalheader

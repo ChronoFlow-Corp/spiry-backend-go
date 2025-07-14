@@ -14,16 +14,17 @@ type Config struct {
 }
 
 type http struct {
-	Addr     string        `env:"HTTP_ADDR"       env-default:"127.0.0.1"                     yaml:"addr"`
-	Port     int           `env:"HTTP_PORT"       env-default:"8080"                          yaml:"port"`
-	Timeout  time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"                            yaml:"timeout"`
-	CertFile string        `env:"HTTPS_CERT_FILE"                         env-required:"true" yaml:"certFile"`
-	KeyFile  string        `env:"HTTPS_KEY_FILE"                          env-required:"true" yaml:"keyFile"`
+	Addr     string        `env:"HTTP_ADDR"       env-default:"127.0.0.1" yaml:"addr"`
+	Port     int           `env:"HTTP_PORT"       env-default:"8080"      yaml:"port"`
+	Timeout  time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"        yaml:"timeout"`
+	CertFile string        `env:"HTTPS_CERT_FILE"                         yaml:"certFile"`
+	KeyFile  string        `env:"HTTPS_KEY_FILE"                          yaml:"keyFile"`
 }
 
 type googleAuth struct {
 	ClientID     string `env:"GOOGLE_CLIENT_ID"     env-required:"true" yaml:"clientId"`
 	ClientSecret string `env:"GOOGLE_CLIENT_SECRET" env-required:"true" yaml:"clientSecret"`
+	RedirectURI string `env:"GOOGLE_REDIRECT_URI" env-required:"true" yaml:"redirectURI"`
 }
 
 // MustLoad modify config struct if you have error it panics.

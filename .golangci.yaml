@@ -10,6 +10,9 @@ linters:
           allow:
             - $gostd
             - github.com/ilyakaznacheev/cleanenv
+            - github.com/jmoiron/sqlx
+            - github.com/ChronoFlow-Corp/spiry-backend-go/internal/config
+            - github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server
   default: all
   enable:
     - canonicalheader

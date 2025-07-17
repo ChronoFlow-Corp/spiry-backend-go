@@ -2,6 +2,8 @@
 package config
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -53,8 +55,37 @@ func (c *Config) MustLoad() {
 	}
 
 	err := cleanenv.ReadConfig(p, c)
-
 	if err != nil {
 		panic("failed to read config: " + err.Error())
 	}
+
+	if c.HTTP.CertFile != "" && c.HTTP.KeyFile != "" {
+		c.mustSslLoad()
+	}
+}
+
+func (c *Config) mustSslLoad() {
+	certFd, err := os.Open(c.HTTP.CertFile)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open ssl cert file: %s: %s", c.HTTP.CertFile, err))
+	}
+	defer certFd.Close()
+
+	certBytes, err := io.ReadAll(certFd)
+	if err != nil {
+		panic(fmt.Sprintf("failed to read ssl cert file: %s: %s", c.HTTP.CertFile, err))
+	}
+	c.HTTP.CertFile = string(certBytes)
+
+	keyFd, err := os.Open(c.HTTP.KeyFile)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open ssl key file: %s: %s", c.HTTP.KeyFile, err))
+	}
+	defer keyFd.Close()
+
+	keyBytes, err := io.ReadAll(keyFd)
+	if err != nil {
+		panic(fmt.Sprintf("failed to read ssl key file: %s: %s", c.HTTP.KeyFile, err))
+	}
+	c.HTTP.KeyFile = string(keyBytes)
 }

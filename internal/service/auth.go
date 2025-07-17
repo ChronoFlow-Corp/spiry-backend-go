@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
-	"io"
 
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -12,28 +14,36 @@ import (
 )
 
 const (
-	emailScope    = "https://www.googleapis.com/auth/userinfo.email"
-	profileScope  = "https://www.googleapis.com/auth/userinfo.profile"
-	userInfo = "https://www.googleapis.com/oauth2/v2/userinfo"
+	emailScope   = "https://www.googleapis.com/auth/userinfo.email"
+	profileScope = "https://www.googleapis.com/auth/userinfo.profile"
+	userInfoURL  = "https://www.googleapis.com/oauth2/v2/userinfo"
 )
-
-type userProvider interface {
-	CreateUser(ctx context.Context)
-}
 
 type token struct {
 	t   *oauth2.Token
 	cfg oauth2.Config
 }
 
+type userInfo struct {
+	Email   string `json:"email"`
+	Name    string `json:"name"`
+	Picture string `json:"picture"`
+}
+
+type userProvider interface {
+	SaveUser(ctx context.Context, u repository.User) error
+}
+
 type Auth struct {
 	clientID     string
 	clientSecret string
 	redirectURI  string
+	userProvider userProvider
+	jwt          jwt.JWT
 }
 
-func New(clientID, clientSecret, redirectURI string) Auth {
-	return Auth{clientID: clientID, clientSecret: clientSecret, redirectURI: redirectURI}
+func New(clientID, clientSecret, redirectURI string, up userProvider, jwt jwt.JWT) Auth {
+	return Auth{clientID: clientID, clientSecret: clientSecret, redirectURI: redirectURI, userProvider: up, jwt: jwt}
 }
 
 func (a Auth) GetAuthCodeURI() string {
@@ -48,14 +58,32 @@ func (a Auth) Login(ctx context.Context, state map[string]string, code string) (
 
 	t, err := a.exchangeCode(ctx, code)
 	if err != nil {
-		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%w: %s", err, op)
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 	}
-	fmt.Println(t)
 
-	t.getUserInfo(ctx)
+	info, err := t.getUserInfo(ctx)
+	if err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	userID, err := uuid.Parse(state["userID"])
+	if err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	access, refresh, err := a.jwt.NewPair(userID.String())
+	if err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	u := repository.NewUser(userID, info.Email, t.t.AccessToken, t.t.RefreshToken, refresh.Raw)
+
+	if err := a.userProvider.SaveUser(ctx, u); err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
 
 	// TODO: create user, save tokens, gen tokens
-	return jwt.AccessToken{}, jwt.RefreshToken{}, nil
+	return access, refresh, nil
 }
 
 func (a Auth) exchangeCode(ctx context.Context, code string) (token, error) {
@@ -71,22 +99,22 @@ func (a Auth) exchangeCode(ctx context.Context, code string) (token, error) {
 	return token{t: t, cfg: cfg}, nil
 }
 
-func (t token) getUserInfo(ctx context.Context) error {
+func (t token) getUserInfo(ctx context.Context) (userInfo, error) {
 	const op = "service.Auth.getUserInfo"
 
-	res, err := t.cfg.Client(ctx, t.t).Get(userInfo)
+	res, err := t.cfg.Client(ctx, t.t).Get(userInfoURL)
 	if err != nil {
-		return fmt.Errorf("%w: %s", err, op)
+		return userInfo{}, fmt.Errorf("%s: %w", op, err)
 	}
 	defer res.Body.Close()
-	b, err := io.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(res)
-	fmt.Println(string(b), "res bosy")
 
-	return nil
+	var usInfo userInfo
+
+	if err := json.NewDecoder(res.Body).Decode(&usInfo); err != nil {
+		return userInfo{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return usInfo, nil
 }
 
 func (a Auth) buildConfig(scopes ...string) oauth2.Config {

@@ -2,17 +2,35 @@
 package config
 
 import (
-	"github.com/ilyakaznacheev/cleanenv"
 	"os"
 	"time"
+
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 // Config struct contains all for start spiry application.
 type Config struct {
 	HTTP       http       `yaml:"http"`
 	GoogleAuth googleAuth `yaml:"google"`
+	Database   database   `yaml:"database"`
+	JWT        jwt        `yaml:"jwt"`
 }
 
+type database struct {
+	PostgresPassword string `config:"postgresPassword"`
+	PostgresHost     string `config:"postgresHost"`
+	PostgresPort     string `config:"postgresPort"`
+	PostgresUser     string `config:"postgresUser"`
+	PostgresDatabase string `config:"postgresDatabase"`
+}
+
+type jwt struct {
+	RefreshSecret       string        `yaml:"refreshSecret"`
+	AccessSecretPublic  string        `yaml:"accessSecretPublic"`
+	AccessSecretPrivate string        `yaml:"accessSecretPrivate"`
+	AccessExpire        time.Duration `yaml:"accessExpire"`
+	RefreshExpire       time.Duration `yaml:"refreshExpire"`
+}
 type http struct {
 	Addr     string        `env:"HTTP_ADDR"       env-default:"127.0.0.1" yaml:"addr"`
 	Port     int           `env:"HTTP_PORT"       env-default:"8080"      yaml:"port"`
@@ -24,7 +42,7 @@ type http struct {
 type googleAuth struct {
 	ClientID     string `env:"GOOGLE_CLIENT_ID"     env-required:"true" yaml:"clientId"`
 	ClientSecret string `env:"GOOGLE_CLIENT_SECRET" env-required:"true" yaml:"clientSecret"`
-	RedirectURI string `env:"GOOGLE_REDIRECT_URI" env-required:"true" yaml:"redirectURI"`
+	RedirectURI  string `env:"GOOGLE_REDIRECT_URI" env-required:"true" yaml:"redirectURI"`
 }
 
 // MustLoad modify config struct if you have error it panics.
@@ -35,6 +53,7 @@ func (c *Config) MustLoad() {
 	}
 
 	err := cleanenv.ReadConfig(p, c)
+
 	if err != nil {
 		panic("failed to read config: " + err.Error())
 	}

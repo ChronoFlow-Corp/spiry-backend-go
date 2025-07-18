@@ -14,31 +14,32 @@ import (
 type Config struct {
 	HTTP       http       `yaml:"http"`
 	GoogleAuth googleAuth `yaml:"google"`
-	Database   database   `yaml:"database"`
+	Database   database   `yaml:"database" env-required:"true"`
 	JWT        jwt        `yaml:"jwt"`
 }
 
 type database struct {
-	PostgresPassword string `config:"postgresPassword"`
-	PostgresHost     string `config:"postgresHost"`
-	PostgresPort     string `config:"postgresPort"`
-	PostgresUser     string `config:"postgresUser"`
-	PostgresDatabase string `config:"postgresDatabase"`
+	PostgresPassword string `yaml:"postgresPassword" env-required:"true"`
+	PostgresHost     string `yaml:"postgresHost" env-required:"true"`
+	PostgresPort     string `yaml:"postgresPort" env-required:"true"`
+	PostgresUser     string `yaml:"postgresUser" env-required:"true"`
+	PostgresDatabase string `yaml:"postgresDatabase" env-required:"true"`
 }
 
 type jwt struct {
-	RefreshSecret       string        `yaml:"refreshSecret"`
-	AccessSecretPublic  string        `yaml:"accessSecretPublic"`
-	AccessSecretPrivate string        `yaml:"accessSecretPrivate"`
-	AccessExpire        time.Duration `yaml:"accessExpire"`
-	RefreshExpire       time.Duration `yaml:"refreshExpire"`
+	RefreshSecret       string        `yaml:"refreshSecret" env-required:"true"`
+	AccessSecretPublic  string        `yaml:"accessSecretPublic" env-required:"true"`
+	AccessSecretPrivate string        `yaml:"accessSecretPrivate" env-required:"true"`
+	AccessExpire        time.Duration `yaml:"accessExpire" env-default:"3h"`
+	RefreshExpire       time.Duration `yaml:"refreshExpire" env-default:"24h"`
 }
 type http struct {
-	Addr     string        `env:"HTTP_ADDR"       env-default:"127.0.0.1" yaml:"addr"`
+	Addr     string        `env:"HTTP_ADDR"       env-default:"localhost" yaml:"addr"`
 	Port     int           `env:"HTTP_PORT"       env-default:"8080"      yaml:"port"`
 	Timeout  time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"        yaml:"timeout"`
 	CertFile string        `env:"HTTPS_CERT_FILE"                         yaml:"certFile"`
 	KeyFile  string        `env:"HTTPS_KEY_FILE"                          yaml:"keyFile"`
+	FrontendURL string `env:"FRONTEND_URL" yaml:"frontendURL" env-required:"true"`
 }
 
 type googleAuth struct {
@@ -59,9 +60,39 @@ func (c *Config) MustLoad() {
 		panic("failed to read config: " + err.Error())
 	}
 
+	c.mustJwtLoad()
+
 	if c.HTTP.CertFile != "" && c.HTTP.KeyFile != "" {
 		c.mustSslLoad()
 	}
+}
+
+func (c *Config) mustJwtLoad() {
+	pbFd, err := os.Open(c.JWT.AccessSecretPublic)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open access secret public file: %s", err))
+	}
+	defer pbFd.Close()
+
+	pb, err := io.ReadAll(pbFd)
+	if err != nil {
+		panic(fmt.Sprintf("failed to read access secret public file: %s", err))
+	}
+
+	c.JWT.AccessSecretPublic = string(pb)
+
+	prFd, err := os.Open(c.JWT.AccessSecretPrivate)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open access secret private file: %s", err))
+	}
+	defer prFd.Close()
+
+	pr, err := io.ReadAll(prFd)
+	if err != nil {
+		panic(fmt.Sprintf("failed to read access secret private file: %s", err))
+	}
+
+	c.JWT.AccessSecretPrivate = string(pr)
 }
 
 func (c *Config) mustSslLoad() {

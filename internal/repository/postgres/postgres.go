@@ -21,5 +21,10 @@ func New(host, port, user, password, dbname string) (*Postgres, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
+	err = db.Ping()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
 	return &Postgres{db: db}, nil
 }

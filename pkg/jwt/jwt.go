@@ -21,12 +21,12 @@ type Token struct {
 
 type AccessToken struct {
 	Raw    string `json:"rawToken"`
-	claims accessClaims
+	Claims accessClaims
 }
 
 type RefreshToken struct {
 	Raw    string `json:"rawToken"`
-	claims refreshClaims
+	Claims refreshClaims
 }
 
 type refreshClaims struct {

@@ -34,9 +34,10 @@ func main() {
 		cfg.JWT.AccessExpire,
 		cfg.JWT.RefreshExpire)
 
-	auth := service.New(cfg.GoogleAuth.ClientID, cfg.GoogleAuth.ClientSecret, "http://localhost:1337/api/connect/google/callback", db, j)
+	auth := service.New(cfg.GoogleAuth.ClientID, cfg.GoogleAuth.ClientSecret,
+		"http://localhost:1337/api/connect/google/callback", db, j)
 
-	srv := server.New(cfg.HTTP.Addr, cfg.HTTP.CertFile, cfg.HTTP.KeyFile, cfg.HTTP.Port, cfg.HTTP.Timeout, auth)
+	srv := server.New(cfg.HTTP.Addr, cfg.HTTP.CertFile, cfg.HTTP.KeyFile, cfg.HTTP.FrontendURL, cfg.HTTP.Port, cfg.HTTP.Timeout, auth)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

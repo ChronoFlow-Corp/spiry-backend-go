@@ -16,7 +16,7 @@ import (
 const (
 	emailScope   = "https://www.googleapis.com/auth/userinfo.email"
 	profileScope = "https://www.googleapis.com/auth/userinfo.profile"
-	userInfoURL  = "https://www.googleapis.com/oauth2/v2/userinfo"
+	userInfoURL  = "https://www.googleapis.com/oauth2/v3/userinfo"
 )
 
 type token struct {
@@ -50,7 +50,7 @@ func (a Auth) GetAuthCodeURI() string {
 	cfg := a.buildConfig(emailScope, profileScope)
 	userID := uuid.New()
 
-	return cfg.AuthCodeURL(userID.String())
+	return cfg.AuthCodeURL(fmt.Sprintf("userID=%s", userID), oauth2.AccessTypeOffline)
 }
 
 func (a Auth) Login(ctx context.Context, state map[string]string, code string) (jwt.AccessToken, jwt.RefreshToken, error) {
@@ -78,11 +78,11 @@ func (a Auth) Login(ctx context.Context, state map[string]string, code string) (
 
 	u := repository.NewUser(userID, info.Email, t.t.AccessToken, t.t.RefreshToken, refresh.Raw)
 
-	if err := a.userProvider.SaveUser(ctx, u); err != nil {
+	err = a.userProvider.SaveUser(ctx, u)
+	if err != nil {
 		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	// TODO: create user, save tokens, gen tokens
 	return access, refresh, nil
 }
 
@@ -93,7 +93,7 @@ func (a Auth) exchangeCode(ctx context.Context, code string) (token, error) {
 
 	t, err := cfg.Exchange(ctx, code)
 	if err != nil {
-		return token{}, fmt.Errorf("cannot exchange code %s: %v", op, err)
+		return token{}, newAuthError(err, fmt.Sprintf("%s: %s", op, "cannot exchange code"))
 	}
 
 	return token{t: t, cfg: cfg}, nil
@@ -104,14 +104,15 @@ func (t token) getUserInfo(ctx context.Context) (userInfo, error) {
 
 	res, err := t.cfg.Client(ctx, t.t).Get(userInfoURL)
 	if err != nil {
-		return userInfo{}, fmt.Errorf("%s: %w", op, err)
+		return userInfo{}, newAuthError(err, fmt.Sprintf("%s: %s", op, "cannot get user info"))
 	}
 	defer res.Body.Close()
 
 	var usInfo userInfo
 
-	if err := json.NewDecoder(res.Body).Decode(&usInfo); err != nil {
-		return userInfo{}, fmt.Errorf("%s: %w", op, err)
+	err = json.NewDecoder(res.Body).Decode(&usInfo)
+	if err != nil {
+		return userInfo{}, newAuthError(err, fmt.Sprintf("%s: %s", op, "cannot decode user info"))
 	}
 
 	return usInfo, nil

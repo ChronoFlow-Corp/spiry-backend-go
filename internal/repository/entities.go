@@ -1,6 +1,9 @@
 package repository
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 type User struct {
 	userID             uuid.UUID
@@ -8,6 +11,8 @@ type User struct {
 	accessTokenGoogle  string
 	refreshTokenGoogle string
 	refreshToken       string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func NewUser(userID uuid.UUID, email, accessTokenGoogle, refreshTokenGoogle, refreshToken string) User {

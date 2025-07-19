@@ -5,10 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/getUserInfo"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/google"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/middlewares"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -25,10 +29,15 @@ type Server struct {
 	keyFile  string
 	frontendURL string
 	auth     service.Auth
+	j jwt.JWT
 }
 
 // New creates new instance server struct.
-func New(addr, certFile, keyFile, frontendURL string, port int, timeout time.Duration, auth service.Auth) Server {
+func New(addr, certFile, keyFile, frontendURL string,
+	port int,
+	timeout time.Duration,
+	auth service.Auth,
+	j jwt.JWT) Server {
 	s := &http.Server{
 		Addr:              addr + ":" + strconv.Itoa(port),
 		ReadHeaderTimeout: readHeaderTimeout,
@@ -37,7 +46,15 @@ func New(addr, certFile, keyFile, frontendURL string, port int, timeout time.Dur
 		IdleTimeout:       timeout,
 	}
 
-	return Server{s: s, certFile: certFile, frontendURL: frontendURL, addr: addr, keyFile: keyFile, auth: auth}
+	return Server{
+		s: s,
+		certFile: certFile,
+		frontendURL: frontendURL,
+		addr: addr,
+		keyFile: keyFile,
+		auth: auth,
+		j: j,
+	}
 }
 
 // ListenAndServe start listening port, if ssl credentials not provide listen on http.
@@ -84,10 +101,24 @@ func (s Server) setRoutes(frontendURL *url.URL) {
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowCredentials: true,
 	}))
+	router.Route("/api", func(r chi.Router) {
+		r.Route("/connect", func(r chi.Router) {
+			r.Get("/google", google.NewRedirect(s.auth))
+			r.Get("google/callback", google.NewCallback(frontendURL, s.addr, s.auth))
+		})
+		r.Route("/", func(r chi.Router) {
+			r.Use(middlewares.AuthJwt(slog.Default(), s.j))
+			r.Route("/user", func(r chi.Router) {
+				r.Get("/", getUserInfo.New(slog.Default(), s.auth))
+			})
+		})
+	})
 	router.Get("/api/connect/google", google.NewRedirect(s.auth))
 	router.Get("/api/connect/google/callback", google.NewCallback(frontendURL, s.addr, s.auth))
 

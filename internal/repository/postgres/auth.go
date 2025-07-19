@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/lib/pq"
@@ -33,8 +34,24 @@ func (p *Postgres) SaveUser(ctx context.Context, u repository.User) error {
 	return nil
 }
 
+func (p *Postgres) GetUserByID(ctx context.Context, id string) (repository.User, error) {
+	const op = "repository.postgres.GetUserByID"
+
+	const q = `select * from users where id = $1`
+	row := p.db.QueryRowContext(ctx, q, id)
+	var u user
+	err := row.Scan(&u)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return repository.User{}, repository.NewNotFound(err, op, "ID", id)
+		}
+		return repository.User{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return toUser(u), nil
+}
+
 func handleAuthError(err *pq.Error, u repository.User) error {
-	fmt.Println(err.Code.Name())
 	switch err.Code.Name() {
 	case uniqueViolation:
 		switch {

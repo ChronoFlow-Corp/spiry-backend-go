@@ -32,6 +32,7 @@ type userInfo struct {
 
 type userProvider interface {
 	SaveUser(ctx context.Context, u repository.User) error
+	GetUserByID(ctx context.Context, id string) (repository.User, error)
 }
 
 type Auth struct {
@@ -84,6 +85,17 @@ func (a Auth) Login(ctx context.Context, state map[string]string, code string) (
 	}
 
 	return access, refresh, nil
+}
+
+func (a Auth) GetUserInfo(ctx context.Context, id string) (repository.User, error) {
+	const op = "service.Auth.GetUserInfo"
+
+	u, err := a.userProvider.GetUserByID(ctx, id)
+	if err != nil {
+		return repository.User{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return u, nil
 }
 
 func (a Auth) exchangeCode(ctx context.Context, code string) (token, error) {

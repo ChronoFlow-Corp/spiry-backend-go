@@ -44,8 +44,8 @@ func New(accessSecretPrivate, accessSecretPublic, refreshSecret []byte,
 		accessSecretPrivate: accessSecretPrivate,
 		accessSecretPublic:  accessSecretPublic,
 		refreshSecret:       refreshSecret,
-		accessExpires: accessExpires,
-		refreshExpires: refreshExpires,
+		accessExpires:       accessExpires,
+		refreshExpires:      refreshExpires,
 	}
 }
 

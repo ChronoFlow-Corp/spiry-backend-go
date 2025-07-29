@@ -6,9 +6,12 @@ import (
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/config"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository/postgres"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service/policy"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/llm"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,7 +32,7 @@ func main() {
 	}
 
 	j := jwt.New([]byte(cfg.JWT.AccessSecretPrivate),
-		[]byte(cfg.JWT.AccessSecretPrivate),
+		[]byte(cfg.JWT.AccessSecretPublic),
 		[]byte(cfg.JWT.RefreshSecret),
 		cfg.JWT.AccessExpire,
 		cfg.JWT.RefreshExpire)
@@ -37,7 +40,23 @@ func main() {
 	auth := service.New(cfg.GoogleAuth.ClientID, cfg.GoogleAuth.ClientSecret,
 		"http://localhost:1337/api/connect/google/callback", db, j)
 
-	srv := server.New(cfg.HTTP.Addr, cfg.HTTP.CertFile, cfg.HTTP.KeyFile, cfg.HTTP.FrontendURL, cfg.HTTP.Port, cfg.HTTP.Timeout, auth)
+	prompt := policy.MustNewPrompt("policy.yaml")
+	llmUrl, err := url.Parse(cfg.LLM.URL)
+	if err != nil {
+		panic("invalid LLM URL")
+	}
+	chat := service.NewChat(llm.NewClient(cfg.LLM.Key, llmUrl), prompt, db, db)
+
+	srv := server.New(
+		cfg.HTTP.Addr,
+		cfg.HTTP.CertFile,
+		cfg.HTTP.KeyFile,
+		cfg.HTTP.FrontendURL,
+		cfg.HTTP.Port,
+		cfg.HTTP.Timeout,
+		auth,
+		j,
+		chat)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

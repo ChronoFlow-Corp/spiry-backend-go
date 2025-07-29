@@ -16,6 +16,7 @@ type Config struct {
 	GoogleAuth googleAuth `yaml:"google"`
 	Database   database   `yaml:"database" env-required:"true"`
 	JWT        jwt        `yaml:"jwt"`
+	LLM llm `yaml:"llm"`
 }
 
 type database struct {
@@ -46,6 +47,15 @@ type googleAuth struct {
 	ClientID     string `env:"GOOGLE_CLIENT_ID"     env-required:"true" yaml:"clientId"`
 	ClientSecret string `env:"GOOGLE_CLIENT_SECRET" env-required:"true" yaml:"clientSecret"`
 	RedirectURI  string `env:"GOOGLE_REDIRECT_URI" env-required:"true" yaml:"redirectURI"`
+}
+
+type llm struct{
+	Key string `env:"LLM_KEY" env-required:"true" yaml:"key"`
+	URL string `env:"LLM_URL" env-required:"true" yaml:"url"`
+	DefaultChat struct{
+		Model string `yaml:"model"`
+		Prompt string `yaml:"prompt"`
+	} `yaml:"defaultChat"`
 }
 
 // MustLoad modify config struct if you have error it panics.

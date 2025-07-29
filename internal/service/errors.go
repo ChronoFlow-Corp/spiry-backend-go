@@ -1,6 +1,8 @@
 package service
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type AuthError struct{
 	Cause error
@@ -17,4 +19,21 @@ func (e AuthError) Unwrap() error {
 
 func newAuthError(err error, message string) *AuthError {
 	return &AuthError{Cause: err, Message: message}
+}
+
+type WsError struct {
+	err   error
+	errChan chan error
+}
+
+func newWsError(err error) *WsError {
+	return &WsError{err: err, errChan: make(chan error, 1)}
+}
+
+func (e *WsError) SetError(err error) {
+	e.errChan <- err
+}
+
+func (e *WsError) Error() error {
+	return <-e.errChan
 }

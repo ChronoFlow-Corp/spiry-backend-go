@@ -8,8 +8,10 @@ RUN go mod download
 
 COPY . .
 
+ENV CONFIG_PATH=config.yaml
+
 RUN go build -o main cmd/spiry/main.go
 
 EXPOSE 8080
 
-CMD ["./main"]
+CMD ["./main", "--steps", "4"]

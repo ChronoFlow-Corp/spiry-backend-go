@@ -8,7 +8,4 @@ ifneq (,$(wildcard ./.env))
 endif
 
 run:
-	go run cmd/spiry/main.go
-
-migrate:
-	go run cmd/spiry/migrate.go --steps $(STEPS)
+	go run cmd/spiry/main.go --steps $(STEPS)

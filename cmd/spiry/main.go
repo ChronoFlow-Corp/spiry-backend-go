@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,6 +20,8 @@ import (
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/llm"
+	"github.com/golang-migrate/migrate/v4"
+	ps "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 )
@@ -26,6 +30,13 @@ import (
 func main() {
 	cfg := config.Config{}
 	cfg.MustLoad()
+
+	steps := flag.Int("steps", 0, "number of steps to migrate, positive to migrate up, negative to migrate down")
+	flag.Parse()
+
+	if steps != nil && *steps != 0 {
+		migrating(cfg, *steps)
+	}
 
 	setLogger(cfg.Env)
 
@@ -66,6 +77,7 @@ func main() {
 		chat)
 
 	go func() {
+		fmt.Println("Starting server...")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Printf("ListenAndServe(): %v", err)
 		}
@@ -92,6 +104,43 @@ func setLogger(level string) {
 	case "production":
 		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 		return
+	}
+}
+
+func migrating(cfg config.Config, steps int) {
+	const op = "migrating"
+
+	db, err := sql.Open("postgres",
+		fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+			cfg.Database.PostgresUser,
+			cfg.Database.PostgresPassword,
+			cfg.Database.PostgresHost,
+			cfg.Database.PostgresPort,
+			cfg.Database.PostgresDatabase,
+			"disable"))
+	if err != nil {
+		slog.Error(op, slog.String("err", err.Error()))
+		os.Exit(1)
+	}
+
+	driver, err := ps.WithInstance(db, &ps.Config{})
+	if err != nil {
+		slog.Error(op, slog.String("err", err.Error()))
+		os.Exit(1)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance("file://migrations", "postgres", driver)
+	if err != nil {
+		slog.Error(op, slog.String("err", err.Error()))
+		os.Exit(1)
+	}
+	slog.Info(op, slog.Int("steps", steps))
+
+	err = m.Steps(steps)
+	if err != nil {
+		slog.Error(op, slog.String("err", err.Error()))
+	} else {
+		slog.Info("Migration completed successfully")
 	}
 }
 

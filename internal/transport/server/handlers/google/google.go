@@ -4,14 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/tr"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/slctx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/tr"
 )
 
 type authProvider interface {
@@ -30,22 +33,17 @@ func NewRedirect(a authProvider) http.HandlerFunc {
 func NewCallback(frontendURL *url.URL, backendDomain string, a authProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		code := r.URL.Query().Get("code")
-		stateMp := make(map[string]string)
 		state := r.URL.Query().Get("state")
-		stateKv := strings.Split(state, "=")
 
-		if len(stateKv)%2 != 0 {
-			tr.RedirectError(w, frontendURL, http.StatusInternalServerError, "Internal server error")
-
-			return
-		}
-
-		for i := 0; i < len(stateKv); i += 2 {
-			stateMp[stateKv[i]] = stateKv[i+1]
-		}
-
-		access, refresh, err := a.Login(r.Context(), stateMp, code)
+		st, err := parseState(state)
 		if err != nil {
+			st = map[string]string{}
+		}
+
+		access, refresh, err := a.Login(r.Context(), st, code)
+		if err != nil {
+			slctx.Logger(r.Context()).Debug("Login error", slog.Any("error", err))
+
 			var authErr *service.AuthError
 
 			var uniqErr *repository.ErrorUnique
@@ -60,10 +58,11 @@ func NewCallback(frontendURL *url.URL, backendDomain string, a authProvider) htt
 				tr.RedirectError(w, frontendURL, http.StatusInternalServerError, "Internal server error")
 			}
 
+			tr.RedirectError(w, frontendURL, http.StatusInternalServerError, "Internal server error")
+
 			return
 		}
 
-		//TODO: redirect with tokens
 		q := frontendURL.Query()
 		q.Set("code", strconv.Itoa(http.StatusOK))
 		q.Set("accessToken", access.Raw)
@@ -73,7 +72,17 @@ func NewCallback(frontendURL *url.URL, backendDomain string, a authProvider) htt
 	}
 }
 
-type responseOK struct {
-	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
+func parseState(state string) (map[string]string, error) {
+	stateMp := make(map[string]string)
+	stateKv := strings.Split(state, "=")
+
+	if len(stateKv)%2 != 0 {
+		return nil, fmt.Errorf("invalid state format")
+	}
+
+	for i := 0; i < len(stateKv); i += 2 {
+		stateMp[stateKv[i]] = stateKv[i+1]
+	}
+
+	return stateMp, nil
 }

@@ -3,24 +3,31 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/config"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository/postgres"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service/policy"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/llm"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/config"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository/postgres"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service/chatting"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/llm"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
 )
+
 
 func main() {
 	cfg := config.Config{}
 	cfg.MustLoad()
+
+	setLogger(cfg.Env)
 
 	db, err := postgres.New(cfg.Database.PostgresHost,
 		cfg.Database.PostgresPort,
@@ -40,12 +47,12 @@ func main() {
 	auth := service.New(cfg.GoogleAuth.ClientID, cfg.GoogleAuth.ClientSecret,
 		"http://localhost:1337/api/connect/google/callback", db, j)
 
-	prompt := policy.MustNewPrompt("policy.yaml")
 	llmUrl, err := url.Parse(cfg.LLM.URL)
 	if err != nil {
 		panic("invalid LLM URL")
 	}
-	chat := service.NewChat(llm.NewClient(cfg.LLM.Key, llmUrl), prompt, db, db)
+
+	chat := chatting.NewChat(llm.NewClient(cfg.LLM.Key, llmUrl), db, db, db, db, db)
 
 	srv := server.New(
 		cfg.HTTP.Addr,
@@ -76,3 +83,15 @@ func main() {
 		fmt.Printf("Server forced to shutdown: %v", err)
 	}
 }
+
+func setLogger(level string) {
+	switch level {
+	case "development":
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})))
+		return
+	case "production":
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+		return
+	}
+}
+

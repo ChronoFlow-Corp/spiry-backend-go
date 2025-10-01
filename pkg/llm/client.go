@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 )
@@ -20,15 +19,8 @@ type Prompt struct {
 }
 
 type ChunkReader interface {
-	Chunk() (Chunk, error)
-	Summary() Chunk
-	IsEOF() bool
-	Wait()
-}
-
-type ChunkReaderCloser interface {
-	ChunkReader
-	io.Closer
+	Read() (Chunk, bool)
+	Done()
 }
 
 type Message struct {
@@ -50,7 +42,7 @@ func NewClient(token string, apiURL *url.URL) *Client {
 	}
 }
 
-func (c *Client) DoStream(ctx context.Context, pr Prompt) (ChunkReaderCloser, error) {
+func (c *Client) DoStream(ctx context.Context, pr Prompt) (ChunkReader, error) {
 	const op = "pkg.llm.DoStream"
 
 	pr.Stream = true
@@ -75,5 +67,5 @@ func (c *Client) DoStream(ctx context.Context, pr Prompt) (ChunkReaderCloser, er
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return newChunkReader(res.Body), nil
+	return newReader(res.Body), nil
 }

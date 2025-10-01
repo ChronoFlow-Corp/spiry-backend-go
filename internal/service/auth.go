@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository/entities"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
 
 	"github.com/google/uuid"
@@ -31,8 +33,10 @@ type userInfo struct {
 }
 
 type userProvider interface {
-	SaveUser(ctx context.Context, u repository.User) error
-	GetUserByID(ctx context.Context, id string) (repository.User, error)
+	SaveUser(ctx context.Context, u entities.User) error
+	UpdateUser(ctx context.Context, u entities.User) error
+	GetUserByID(ctx context.Context) (entities.User, error)
+	GetUserByEmail(ctx context.Context, email string) (entities.User, error)
 }
 
 type Auth struct {
@@ -49,9 +53,8 @@ func New(clientID, clientSecret, redirectURI string, up userProvider, jwt jwt.JW
 
 func (a Auth) GetAuthCodeURI() string {
 	cfg := a.buildConfig(emailScope, profileScope)
-	userID := uuid.New()
 
-	return cfg.AuthCodeURL(fmt.Sprintf("userID=%s", userID), oauth2.AccessTypeOffline)
+	return cfg.AuthCodeURL("", oauth2.AccessTypeOffline)
 }
 
 func (a Auth) Login(ctx context.Context, state map[string]string, code string) (jwt.AccessToken, jwt.RefreshToken, error) {
@@ -67,19 +70,48 @@ func (a Auth) Login(ctx context.Context, state map[string]string, code string) (
 		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	userID, err := uuid.Parse(state["userID"])
+	user, err := a.userProvider.GetUserByEmail(ctx, info.Email)
+	if err != nil {
+		var notFoundErr *repository.ErrorNotFound
+		if errors.As(err, &notFoundErr) {
+			u := entities.NewUser(
+				uuid.New(),
+				info.Email,
+				t.t.AccessToken,
+				t.t.RefreshToken,
+				t.t.RefreshToken,
+				"en",
+				false,
+				entities.Plan{},
+				"light",
+			)
+
+			err = a.registerUser(ctx, u)
+			if err != nil {
+				return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+			}
+
+			access, refresh, err := a.jwt.NewPair(u.ID.String())
+			if err != nil {
+				return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+			}
+
+			return access, refresh, nil
+		}
+
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	access, refresh, err := a.jwt.NewPair(user.ID.String())
 	if err != nil {
 		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	access, refresh, err := a.jwt.NewPair(userID.String())
-	if err != nil {
-		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
-	}
+	user.RefreshToken = refresh.Raw
+	user.AccessTokenGoogle = t.t.AccessToken
+	user.RefreshTokenGoogle = t.t.RefreshToken
 
-	u := repository.NewUser(userID, info.Email, t.t.AccessToken, t.t.RefreshToken, refresh.Raw)
-
-	err = a.userProvider.SaveUser(ctx, u)
+	err = a.updateUser(ctx, user)
 	if err != nil {
 		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 	}
@@ -87,12 +119,34 @@ func (a Auth) Login(ctx context.Context, state map[string]string, code string) (
 	return access, refresh, nil
 }
 
-func (a Auth) GetUserInfo(ctx context.Context, id string) (repository.User, error) {
+func (a Auth) registerUser(ctx context.Context, u entities.User) error {
+	const op = "service.Auth.registerUser"
+
+	err := a.userProvider.SaveUser(ctx, u)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (a Auth) updateUser(ctx context.Context, u entities.User) error {
+	const op = "service.Auth.updateUser"
+
+	err := a.userProvider.UpdateUser(ctx, u)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (a Auth) GetUserInfo(ctx context.Context) (entities.User, error) {
 	const op = "service.Auth.GetUserInfo"
 
-	u, err := a.userProvider.GetUserByID(ctx, id)
+	u, err := a.userProvider.GetUserByID(ctx)
 	if err != nil {
-		return repository.User{}, fmt.Errorf("%s: %w", op, err)
+		return entities.User{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return u, nil

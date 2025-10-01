@@ -4,32 +4,41 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/llm"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/rate"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/tr"
-	"github.com/coder/websocket"
-	exJwt "github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository/commands"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository/entities"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service/chatting"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/rate"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/slctx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/tr"
+	"github.com/coder/websocket"
+	exJwt "github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
+
+const (
+	generating = "generating"
+	done       = "done"
 )
 
 type chatProvider interface {
-	DefaultChat(ctx context.Context, cm repository.ChatCommand) (llm.ChunkReaderCloser, *service.WsError)
+	SendMessage(ctx context.Context, cm commands.SendMessage) (*chatting.Socket, error)
 }
 
 type jwtProvider interface {
 	ParseAccess(raw string, f interface{}) (jwt.AccessToken, error)
 }
 
-func New(log *slog.Logger, chat chatProvider, j jwtProvider) http.HandlerFunc {
+func New(chat chatProvider, j jwtProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := websocket.Accept(w, r, &websocket.AcceptOptions{Subprotocols: []string{"json"}})
 		if err != nil {
@@ -42,22 +51,24 @@ func New(log *slog.Logger, chat chatProvider, j jwtProvider) http.HandlerFunc {
 		}
 		id := getUserID(r, j)
 
-
 		if c.Subprotocol() != "json" {
 			c.Close(websocket.StatusPolicyViolation, "Invalid subprotocol")
 
 			return
 		}
+
 		defer c.Close(websocket.StatusGoingAway, "End")
+
 		l := rate.NewLimiter(time.Millisecond*100, 10)
+		log := slctx.Logger(r.Context()).With(slog.String("component", "ws_handler"))
 		for {
 			err := handlerMessage(c, l, log, chat, id)
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
-				log.Debug("websocket closed")
+				slctx.Logger(r.Context()).Debug("websocket connection closed")
 				return
 			}
 			if err != nil {
-				log.Debug("websocket errored", slog.String("error", err.Error()))
+				slctx.Logger(r.Context()).Debug("websocket handler error", slog.String("error", err.Error()))
 				return
 			}
 		}
@@ -71,13 +82,19 @@ func handlerMessage(
 	log *slog.Logger,
 	chat chatProvider,
 	userID *uuid.UUID) error {
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*40)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	if userID != nil {
+		log.Debug("handling new message", slog.Any("user_id", userID))
+		ctx = context.WithValue(ctx, entities.UserIDCtxKey{}, *userID)
+	}
 
 	l.Wait(ctx)
 
 	mstp, msg, err := c.Reader(ctx)
 	if err != nil {
-		log.Debug(err.Error())
+		log.Debug("cannot get reader", slog.Any("error", err))
 
 		return err
 	}
@@ -86,89 +103,80 @@ func handlerMessage(
 
 	err = json.NewDecoder(msg).Decode(&cm)
 	if err != nil {
-		log.Debug("cannot decode message", slog.Attr{"error", slog.StringValue(err.Error())})
+		log.Debug("cannot decode message", slog.Any("error", err))
 
 		return err
 	}
 
-	res, wsErr := chat.DefaultChat(ctx, repository.ChatCommand{
-		ChatID:   cm.ChatID,
-		UserID:   userID,
-		Type:     cm.Type,
-		Text:     cm.Text,
-		Network:  cm.Network,
-		Language: cm.Language,
+	ctx = slctx.WithLogger(ctx, log)
+
+	res, err := chat.SendMessage(ctx, commands.SendMessage{
+		ChatID: cm.ChatID,
+		Role:   entities.UserRole,
+		Flags:  cm.Flags,
+		Vars:   cm.Vars,
+		Tool:   cm.Tool,
 	})
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				err = wsErr.Error()
-				w, wrErr := c.Writer(ctx, mstp)
-				if wrErr != nil {
-					log.Debug("websocket errored", slog.String("error", err.Error()))
-					return
-				}
-				var notFound *repository.ErrorNotFound
-				var uniq *repository.ErrorUnique
-				var errRp errorResponse
-				switch {
-				case errors.As(err, &notFound):
-					errRp.ErrorCode = strconv.Itoa(http.StatusNotFound)
-					errRp.Message = err.Error()
-					raw, _ := json.Marshal(errRp)
-					w.Write(raw)
-				case errors.As(err, &uniq):
-					errRp.ErrorCode = strconv.Itoa(http.StatusUnprocessableEntity)
-					errRp.Message = err.Error()
-					raw, _ := json.Marshal(errRp)
-					w.Write(raw)
-				}
-				w.Close()
-			}
-		}
-	}()
-	defer res.Close()
-
 	if err != nil {
+		log.Debug("cannot send message", slog.Any("error", err))
+
+		var errNotFound *repository.ErrorNotFound
+		if errors.As(err, &errNotFound) {
+			raw, err := json.Marshal(errorResponse{
+				ErrorCode: strconv.Itoa(http.StatusBadRequest),
+				Message: fmt.Sprintf(
+					"Cannot send message, not found %s with value %s",
+					errNotFound.RowName,
+					errNotFound.Row,
+				),
+			})
+			if err != nil {
+				log.Debug("cannot marshal message", slog.Any("error", err))
+				return err
+			}
+			c.Write(ctx, mstp, raw)
+		}
+
 		return err
 	}
 
 	for {
-		ch, err := res.Chunk()
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
-		w, err := c.Writer(ctx, mstp)
-		if err != nil {
-			w.Close()
-			return err
-		}
-
-		for _, v := range ch.Messages {
+		select {
+		case <-ctx.Done():
+			return nil
+		case ev := <-res.InfoEvent():
 			raw, err := json.Marshal(responseChunk{
-				Content: v.Content,
-				Role:    v.Role,
-				ChatID:  cm.ChatID,
+				Content:   ev.Content,
+				MessageID: ev.ID.String(),
+				Role:      ev.Role,
+				State:     generating,
+				ChatID:    ev.ChatID.String()})
+			if err != nil {
+				return err
+			}
+			c.Write(ctx, mstp, raw)
+		case ev := <-res.WarningEvent():
+			log.Debug("websocket warning", slog.Any("warn", ev))
+			raw, err := json.Marshal(responseChunk{State: done, MessageID: res.GetMessageID().String()})
+			if err != nil {
+				return err
+			}
+			c.Write(ctx, mstp, raw)
+		case err := <-res.ErrorEvent():
+			log.Debug("websocket handler error", slog.Any("error", err))
+
+			raw, err := json.Marshal(errorResponse{
+				ErrorCode: "500",
+				Message:   err.Error(),
 			})
 			if err != nil {
-				log.Debug("marshaling error", slog.String("error", err.Error()))
-				w.Close()
-
 				return err
 			}
 
-			w.Write(raw)
+			c.Write(ctx, mstp, raw)
 		}
-
-		w.Close()
 	}
+
 }
 
 func getUserID(r *http.Request, j jwtProvider) *uuid.UUID {
@@ -193,17 +201,19 @@ func getUserID(r *http.Request, j jwtProvider) *uuid.UUID {
 }
 
 type request struct {
-	ChatID   string `json:"chatID,omitempty"`
-	Type     string `json:"type,omitempty"`
-	Text     string `json:"text,omitempty"`
-	Network  string `json:"network,omitempty"`
-	Language string `json:"language,omitempty"`
+	ChatID *uuid.UUID        `json:"chat_id,omitempty"`
+	Flags  []string          `json:"flags,omitempty"`
+	Vars   map[string]string `json:"vars,omitempty"`
+	Tool   string            `json:"tool,omitempty"`
+	Media  io.ReadCloser     `json:"media,omitempty"`
 }
 
 type responseChunk struct {
-	Content string `json:"content"`
-	ChatID  string `json:"chatID"`
-	Role    string `json:"role"`
+	MessageID string `json:"message_id,omitempty"`
+	Content   string `json:"content,omitempty"`
+	ChatID    string `json:"chat_id,omitempty"`
+	Role      string `json:"role,omitempty"`
+	State     string `json:"state,omitempty"`
 }
 
 type errorResponse struct {

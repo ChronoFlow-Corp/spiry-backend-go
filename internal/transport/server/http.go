@@ -4,20 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
+
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service/chatting"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/deleteChat"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/getChats"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/getUserInfo"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/google"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/patchChat"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/ws"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/middlewares"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"log/slog"
-	"net/http"
-	"net/url"
-	"strconv"
-	"time"
 )
 
 const readHeaderTimeout = time.Second * 5
@@ -30,7 +34,7 @@ type Server struct {
 	keyFile     string
 	frontendURL string
 	auth        service.Auth
-	ll          service.Chat
+	ll chatting.Service
 	j           jwt.JWT
 }
 
@@ -40,7 +44,7 @@ func New(addr, certFile, keyFile, frontendURL string,
 	timeout time.Duration,
 	auth service.Auth,
 	j jwt.JWT,
-	ll service.Chat) Server {
+	ll chatting.Service) Server {
 	s := &http.Server{
 		Addr:              addr + ":" + strconv.Itoa(port),
 		ReadHeaderTimeout: readHeaderTimeout,
@@ -105,6 +109,7 @@ func (s Server) setRoutes(frontendURL *url.URL) {
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
+	router.Use(middlewares.Logger())
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(cors.Handler(cors.Options{
@@ -117,12 +122,15 @@ func (s Server) setRoutes(frontendURL *url.URL) {
 			r.Get("/google/callback", google.NewCallback(frontendURL, s.addr, s.auth))
 		})
 		r.Route("/", func(r chi.Router) {
-			r.Use(middlewares.AuthJwt(slog.Default(), s.j))
+			r.Use(middlewares.AuthJwt(s.j))
 			r.Route("/user", func(r chi.Router) {
-				r.Get("/", getUserInfo.New(slog.Default(), s.auth))
+				r.Get("/", getUserInfo.New(s.auth))
 			})
+			r.Get("/chats", getChats.New(s.ll))
+			r.Patch("/chats", patchChat.New(s.ll))
+			r.Delete("/chats", deleteChat.New(s.ll))
 		})
-		r.Get("/ws", ws.New(slog.Default(), s.ll, s.j))
+		r.Get("/ws", ws.New(s.ll, s.j))
 	})
 
 	s.s.Handler = router

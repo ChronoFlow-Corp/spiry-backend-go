@@ -1,0 +1,2 @@
+ALTER TABLE chats DROP COLUMN tool_id;
+DROP TABLE IF EXISTS tools;

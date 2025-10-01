@@ -1,4 +1,13 @@
 services:
+  spiry:
+    build:
+      target: app
+    depends_on:
+      - database
+    env_file:
+      - .env
+    ports:
+      - "1337:1337"
   database:
     image: postgres
     restart: always

@@ -30,4 +30,3 @@ func RedirectError(w http.ResponseWriter, location *url.URL, status int, message
 	w.Header().Set("Location", location.String())
 	w.WriteHeader(http.StatusPermanentRedirect)
 }
-

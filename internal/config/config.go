@@ -12,11 +12,12 @@ import (
 
 // Config struct contains all for start spiry application.
 type Config struct {
+	Env string `env:"ENV" yaml:"env" env-default:"development"`
 	HTTP       http       `yaml:"http"`
 	GoogleAuth googleAuth `yaml:"google"`
 	Database   database   `yaml:"database" env-required:"true"`
 	JWT        jwt        `yaml:"jwt"`
-	LLM llm `yaml:"llm"`
+	LLM llm    `yaml:"llm"`
 }
 
 type database struct {
@@ -25,6 +26,7 @@ type database struct {
 	PostgresPort     string `yaml:"postgresPort" env-required:"true"`
 	PostgresUser     string `yaml:"postgresUser" env-required:"true"`
 	PostgresDatabase string `yaml:"postgresDatabase" env-required:"true"`
+	PathToMigrations string `yaml:"pathToMigrations"`
 }
 
 type jwt struct {
@@ -35,12 +37,12 @@ type jwt struct {
 	RefreshExpire       time.Duration `yaml:"refreshExpire" env-default:"24h"`
 }
 type http struct {
-	Addr     string        `env:"HTTP_ADDR"       env-default:"localhost" yaml:"addr"`
-	Port     int           `env:"HTTP_PORT"       env-default:"8080"      yaml:"port"`
-	Timeout  time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"        yaml:"timeout"`
-	CertFile string        `env:"HTTPS_CERT_FILE"                         yaml:"certFile"`
-	KeyFile  string        `env:"HTTPS_KEY_FILE"                          yaml:"keyFile"`
-	FrontendURL string `env:"FRONTEND_URL" yaml:"frontendURL" env-required:"true"`
+	Addr        string        `env:"HTTP_ADDR"       env-default:"localhost" yaml:"addr"`
+	Port        int           `env:"HTTP_PORT"       env-default:"8080"      yaml:"port"`
+	Timeout     time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"        yaml:"timeout"`
+	CertFile    string        `env:"HTTPS_CERT_FILE"                         yaml:"certFile"`
+	KeyFile     string        `env:"HTTPS_KEY_FILE"                          yaml:"keyFile"`
+	FrontendURL string        `env:"FRONTEND_URL" yaml:"frontendURL" env-required:"true"`
 }
 
 type googleAuth struct {
@@ -49,13 +51,9 @@ type googleAuth struct {
 	RedirectURI  string `env:"GOOGLE_REDIRECT_URI" env-required:"true" yaml:"redirectURI"`
 }
 
-type llm struct{
-	Key string `env:"LLM_KEY" env-required:"true" yaml:"key"`
-	URL string `env:"LLM_URL" env-required:"true" yaml:"url"`
-	DefaultChat struct{
-		Model string `yaml:"model"`
-		Prompt string `yaml:"prompt"`
-	} `yaml:"defaultChat"`
+type llm struct {
+	Key         string `env:"LLM_KEY" env-required:"true" yaml:"key"`
+	URL         string `env:"LLM_URL" env-required:"true" yaml:"url"`
 }
 
 // MustLoad modify config struct if you have error it panics.

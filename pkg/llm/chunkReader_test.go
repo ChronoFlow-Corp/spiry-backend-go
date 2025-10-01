@@ -49,7 +49,7 @@ data: {"id":"gen-1753280636-RRwXLUetXTvT0VRMWWLP","provider":"Nebius","model":"m
 data: {"id":"gen-1753280636-RRwXLUetXTvT0VRMWWLP","provider":"Nebius","model":"mistralai/mistral-small-3.1-24b-instruct","object":"chat.completion.chunk","created":1753280636,"choices":[{"index":0,"delta":{"role":"assistant","content":"?"},"finish_reason":null,"native_finish_reason":null,"logprobs":null}]}`),
 		},
 	}
-	type mockCloser struct{
+	type mockCloser struct {
 		io.Reader
 		io.Closer
 	}

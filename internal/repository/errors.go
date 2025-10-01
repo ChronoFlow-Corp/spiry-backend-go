@@ -6,7 +6,7 @@ type ErrorUnique struct {
 	Cause error
 	Message string
 	RowName string
-	Row string
+	Row   string
 }
 
 func (e *ErrorUnique) Error() string {
@@ -30,7 +30,7 @@ type ErrorNotFound struct {
 	Cause error
 	Message string
 	RowName string
-	Row string
+	Row   string
 }
 
 func (e *ErrorNotFound) Error() string {

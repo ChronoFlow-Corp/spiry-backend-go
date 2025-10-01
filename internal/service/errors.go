@@ -4,7 +4,12 @@ import (
 	"fmt"
 )
 
-type AuthError struct{
+var UserIDNotFoundErr = fmt.Errorf("user id not found in context")
+var LimitExceededErr = fmt.Errorf("user limit exceeded")
+var ProPlanExpiredErr = fmt.Errorf("pro plan limit exceeded")
+var MismatchToolErr = fmt.Errorf("the tool does not match the chat's tool")
+
+type AuthError struct {
 	Cause error
 	Message string
 }
@@ -22,12 +27,16 @@ func newAuthError(err error, message string) *AuthError {
 }
 
 type WsError struct {
-	err   error
+	err error
 	errChan chan error
 }
 
-func newWsError(err error) *WsError {
+func NewWsError(err error) *WsError {
 	return &WsError{err: err, errChan: make(chan error, 1)}
+}
+
+func NewEmptyWsError() *WsError {
+	return &WsError{errChan: make(chan error, 1)}
 }
 
 func (e *WsError) SetError(err error) {
@@ -36,4 +45,8 @@ func (e *WsError) SetError(err error) {
 
 func (e *WsError) Error() error {
 	return <-e.errChan
+}
+
+func (e *WsError) Close() {
+	close(e.errChan)
 }

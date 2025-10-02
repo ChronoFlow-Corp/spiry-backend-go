@@ -33,17 +33,7 @@ func toUser(u user) entities.User {
 		u.RefreshToken,
 		u.Language,
 		u.Admin,
-		entities.Plan{
-			ID:        u.Plan.ID,
-			Name:      u.Plan.Name,
-			Price:     u.Plan.Price,
-			Limit:     u.Plan.Limit,
-			Features:  u.Plan.Features,
-			UserID:    u.Plan.UserID,
-			End:       u.Plan.End,
-			CreatedAt: u.Plan.CreatedAt,
-			UpdatedAt: u.Plan.UpdatedAt,
-		},
+		dbPlanToRepositoryPlan(u.Plan),
 		u.Theme,
 	)
 }
@@ -156,20 +146,24 @@ type dbPlan struct {
 	Name      string     `db:"name"`
 	Price     string     `db:"price"`
 	Limit     *int       `db:"prompt_limit"`
-	End       *time.Time `db:"end"`
-	Features  []string   `db:"features"`
+	End      *time.Time `db:"end_date"`
+	Features *[]string  `db:"features"`
 	UserID    uuid.UUID  `db:"user_id"`
 	CreatedAt time.Time  `db:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at"`
 }
 
 func dbPlanToRepositoryPlan(plan dbPlan) entities.Plan {
+	if plan.Features == nil {
+		plan.Features = new([]string)
+	}
+
 	return entities.Plan{
 		ID:        plan.ID,
 		Name:      plan.Name,
 		Price:     plan.Price,
 		Limit:     plan.Limit,
-		Features:  plan.Features,
+		Features: *plan.Features,
 		End:       plan.End,
 		UserID:    plan.UserID,
 		CreatedAt: plan.CreatedAt,

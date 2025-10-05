@@ -11,23 +11,27 @@ import (
 )
 
 type user struct {
-	ID        uuid.UUID `db:"id"`
-	Email     string    `db:"email"`
-	AccessTokenGoogle string    `db:"access_token_google"`
+	ID                 uuid.UUID `db:"id"`
+	Email              string    `db:"email"`
+	Name               string    `db:"name"`
+	Picture            string    `db:"picture"`
+	AccessTokenGoogle  string    `db:"access_token_google"`
 	RefreshTokenGoogle string    `db:"refresh_token_google"`
-	RefreshToken      string    `db:"refresh_token"`
-	Admin     bool      `db:"admin"`
-	Theme     string    `db:"theme"`
-	Language  string    `db:"language"`
-	Plan      dbPlan    `db:"plan"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	RefreshToken       string    `db:"refresh_token"`
+	Admin              bool      `db:"admin"`
+	Theme              string    `db:"theme"`
+	Language           string    `db:"language"`
+	Plan               dbPlan    `db:"plan"`
+	CreatedAt          time.Time `db:"created_at"`
+	UpdatedAt          time.Time `db:"updated_at"`
 }
 
 func toUser(u user) entities.User {
 	return entities.NewUser(
 		u.ID,
 		u.Email,
+		u.Name,
+		u.Picture,
 		u.AccessTokenGoogle,
 		u.RefreshTokenGoogle,
 		u.RefreshToken,
@@ -69,8 +73,8 @@ type dbChat struct {
 	UserID    uuid.UUID   `db:"user_id"`
 	CreatedAt time.Time   `db:"created_at"`
 	Messages  []dbMessage `db:"messages"`
-	ToolID uuid.UUID   `db:"tool_id"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ToolID    uuid.UUID   `db:"tool_id"`
+	UpdatedAt time.Time   `db:"updated_at"`
 }
 
 type dbChatWithMessage struct {
@@ -146,8 +150,8 @@ type dbPlan struct {
 	Name      string     `db:"name"`
 	Price     string     `db:"price"`
 	Limit     *int       `db:"prompt_limit"`
-	End      *time.Time `db:"end_date"`
-	Features *[]string  `db:"features"`
+	End       *time.Time `db:"end_date"`
+	Features  *[]string  `db:"features"`
 	UserID    uuid.UUID  `db:"user_id"`
 	CreatedAt time.Time  `db:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at"`
@@ -163,7 +167,7 @@ func dbPlanToRepositoryPlan(plan dbPlan) entities.Plan {
 		Name:      plan.Name,
 		Price:     plan.Price,
 		Limit:     plan.Limit,
-		Features: *plan.Features,
+		Features:  *plan.Features,
 		End:       plan.End,
 		UserID:    plan.UserID,
 		CreatedAt: plan.CreatedAt,

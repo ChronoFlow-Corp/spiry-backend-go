@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository"
@@ -40,7 +39,7 @@ func NewCallback(frontendURL *url.URL, backendDomain string, a authProvider) htt
 			st = map[string]string{}
 		}
 
-		access, refresh, err := a.Login(r.Context(), st, code)
+		_, refresh, err := a.Login(r.Context(), st, code)
 		if err != nil {
 			slctx.Logger(r.Context()).Debug("Login error", slog.Any("error", err))
 
@@ -63,11 +62,16 @@ func NewCallback(frontendURL *url.URL, backendDomain string, a authProvider) htt
 			return
 		}
 
-		q := frontendURL.Query()
-		q.Set("code", strconv.Itoa(http.StatusOK))
-		q.Set("accessToken", access.Raw)
-		q.Set("refreshToken", refresh.Raw)
-		frontendURL.RawQuery = q.Encode()
+		http.SetCookie(w, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    refresh.Raw,
+			Path:     "/api/refresh",
+			Expires:  refresh.Claims.ExpiresAt.Time,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		})
+
 		http.Redirect(w, r, frontendURL.String(), http.StatusPermanentRedirect)
 	}
 }

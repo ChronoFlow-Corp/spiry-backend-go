@@ -40,12 +40,14 @@ func (p *Postgres) SaveUser(ctx context.Context, u entities.User) error {
 		}
 	}()
 
-	q := `insert into users(id, email, access_token_google, refresh_token_google, refresh_token) 
-	values ($1, $2, $3, $4, $5)`
+	q := `insert into users(id, email, name, picture_url, access_token_google, refresh_token_google, refresh_token) 
+	values ($1, $2, $3, $4, $5, $6, $7)`
 
 	_, err = tx.ExecContext(ctx, q,
 		u.ID,
 		u.Email,
+		u.Name,
+		u.PictureURL,
 		u.AccessTokenGoogle,
 		u.RefreshTokenGoogle,
 		u.RefreshToken)
@@ -88,6 +90,32 @@ func (p *Postgres) GetUserByID(ctx context.Context) (entities.User, error) {
 	}
 
 	return toUser(u), nil
+}
+
+func (p *Postgres) SetPlanLimit(ctx context.Context, limit int, planID uuid.UUID) error {
+	const op = "repository.postgres.UpdatePlan"
+
+	const q = `update plans set limit=$1 where id = $2 and user_id = $3`
+
+	_, err := p.db.ExecContext(ctx, q, limit, planID, ctx.Value(entities.UserIDCtxKey{}).(uuid.UUID))
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (p *Postgres) UpdateRefreshToken(ctx context.Context, refreshToken string) error {
+	const op = "repository.postgres.UpdateRefreshToken"
+
+	const q = `update users set refresh_token=$1 where id = $2`
+
+	_, err := p.db.ExecContext(ctx, q, refreshToken, ctx.Value(entities.UserIDCtxKey{}).(uuid.UUID))
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }
 
 func (p *Postgres) UpdateUser(ctx context.Context, u entities.User) error {

@@ -1,4 +1,4 @@
-FROM golang:1.24.5 as app
+FROM golang:1.24.5 as spiry
 
 WORKDIR /app
 

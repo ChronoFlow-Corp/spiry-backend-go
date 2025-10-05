@@ -125,7 +125,7 @@ func (s Server) setRoutes(frontendURL *url.URL) {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(cors.Handler(cors.Options{
-		AllowCredentials:   false,
+		AllowCredentials:   true,
 		OptionsPassthrough: false,
 		AllowedOrigins:     []string{s.stageOrigin, s.devOrigin, s.prodOrigin},
 		AllowedMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

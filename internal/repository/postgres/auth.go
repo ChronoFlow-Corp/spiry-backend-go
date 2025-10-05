@@ -59,11 +59,9 @@ func (p *Postgres) SaveUser(ctx context.Context, u entities.User) error {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	q = `insert into plans(id, name, prompt_limit, user_id) values ($1, $2, $3, $4)`
+	q = `insert into plans(id, name, prompt_limit, price, user_id) values ($1, $2, $3, $4, $5)`
 
-	planID := uuid.New()
-
-	_, err = tx.ExecContext(ctx, q, planID, "free", 5, u.ID)
+	_, err = tx.ExecContext(ctx, q, u.Plan.ID, u.Plan.Name, u.Plan.Limit, u.Plan.Price, u.ID)
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, op)
 	}

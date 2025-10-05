@@ -27,15 +27,16 @@ type messageProvider interface {
 	AddMessage(ctx context.Context, msg entities.Message) error
 }
 
-type userProvider interface{
+type userProvider interface {
 	GetUserByID(ctx context.Context) (entities.User, error)
+	SetPlanLimit(ctx context.Context, limit int, planID uuid.UUID) error
 }
 
-type toolProvider interface{
+type toolProvider interface {
 	GetToolByName(ctx context.Context, name string) (entities.Tool, error)
 }
 
-type txProvider interface{
+type txProvider interface {
 	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
@@ -135,6 +136,8 @@ func (s Service) checkLimits(ctx context.Context) error {
 			return fmt.Errorf("%s: %w", op, service.LimitExceededErr)
 		}
 
+		s.up.SetPlanLimit(ctx, *u.Plan.Limit-1, u.Plan.ID)
+
 		return nil
 	case entities.ProPlanName:
 		if u.Plan.End != nil && u.Plan.End.Before(time.Now()) {
@@ -144,5 +147,3 @@ func (s Service) checkLimits(ctx context.Context) error {
 
 	return nil
 }
-
-

@@ -35,6 +35,7 @@ type userInfo struct {
 type userProvider interface {
 	SaveUser(ctx context.Context, u entities.User) error
 	UpdateUser(ctx context.Context, u entities.User) error
+	UpdateRefreshToken(ctx context.Context, refreshToken string) error
 	GetUserByID(ctx context.Context) (entities.User, error)
 	GetUserByEmail(ctx context.Context, email string) (entities.User, error)
 }
@@ -57,6 +58,43 @@ func (a Auth) GetAuthCodeURI() string {
 	return cfg.AuthCodeURL("", oauth2.AccessTypeOffline)
 }
 
+func (a Auth) Refresh(ctx context.Context, token string) (jwt.AccessToken, jwt.RefreshToken, error) {
+	const op = "repository.auth.Refresh"
+
+	t, err := a.jwt.ParseRefresh(token)
+	if err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	userID, err := uuid.Parse(t.Claims.Issuer)
+	if err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	ctx = context.WithValue(ctx, entities.UserIDCtxKey{}, userID)
+
+	u, err := a.userProvider.GetUserByID(ctx)
+	if err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if u.RefreshToken != t.Raw {
+		return jwt.AccessToken{}, jwt.RefreshToken{},
+			fmt.Errorf("%s: %w", op, errors.New("invalid refresh token"))
+	}
+
+	access, refresh, err := a.jwt.NewPair(userID.String())
+	if err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+	err = a.userProvider.UpdateRefreshToken(ctx, refresh.Raw)
+	if err != nil {
+		return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return access, refresh, nil
+}
+
 func (a Auth) Login(ctx context.Context, state map[string]string, code string) (jwt.AccessToken, jwt.RefreshToken, error) {
 	const op = "service.Auth.Login"
 
@@ -77,12 +115,14 @@ func (a Auth) Login(ctx context.Context, state map[string]string, code string) (
 			u := entities.NewUser(
 				uuid.New(),
 				info.Email,
+				info.Name,
+				info.Picture,
 				t.t.AccessToken,
 				t.t.RefreshToken,
 				t.t.RefreshToken,
 				"en",
 				false,
-				entities.Plan{},
+				entities.NewFreePlan(),
 				"light",
 			)
 

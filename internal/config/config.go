@@ -12,12 +12,12 @@ import (
 
 // Config struct contains all for start spiry application.
 type Config struct {
-	Env string `env:"ENV" yaml:"env" env-default:"development"`
+	Env        string     `env:"ENV" yaml:"env" env-default:"development"`
 	HTTP       http       `yaml:"http"`
 	GoogleAuth googleAuth `yaml:"google"`
 	Database   database   `yaml:"database" env-required:"true"`
 	JWT        jwt        `yaml:"jwt"`
-	LLM llm    `yaml:"llm"`
+	LLM        llm        `yaml:"llm"`
 }
 
 type database struct {
@@ -40,8 +40,11 @@ type http struct {
 	Addr        string        `env:"HTTP_ADDR"       env-default:"localhost" yaml:"addr"`
 	Port        int           `env:"HTTP_PORT"       env-default:"8080"      yaml:"port"`
 	Timeout     time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"        yaml:"timeout"`
-	CertFile    string        `env:"HTTPS_CERT_FILE"                         yaml:"certFile"`
-	KeyFile     string        `env:"HTTPS_KEY_FILE"                          yaml:"keyFile"`
+	CertFile    string        `env:"HTTPS_CERT_FILE"`
+	KeyFile     string        `env:"HTTPS_KEY_FILE"`
+	DevOrigin   string        `yaml:"devOrigin"`
+	StageOrigin string        `yaml:"stageOrigin"`
+	ProdOrigin  string        `yaml:"prodOrigin"`
 	FrontendURL string        `env:"FRONTEND_URL" yaml:"frontendURL" env-required:"true"`
 }
 
@@ -52,8 +55,8 @@ type googleAuth struct {
 }
 
 type llm struct {
-	Key         string `env:"LLM_KEY" env-required:"true" yaml:"key"`
-	URL         string `env:"LLM_URL" env-required:"true" yaml:"url"`
+	Key string `env:"LLM_KEY" env-required:"true" yaml:"key"`
+	URL string `env:"LLM_URL" env-required:"true" yaml:"url"`
 }
 
 // MustLoad modify config struct if you have error it panics.
@@ -69,10 +72,6 @@ func (c *Config) MustLoad() {
 	}
 
 	c.mustJwtLoad()
-
-	if c.HTTP.CertFile != "" && c.HTTP.KeyFile != "" {
-		c.mustSslLoad()
-	}
 }
 
 func (c *Config) mustJwtLoad() {
@@ -101,30 +100,4 @@ func (c *Config) mustJwtLoad() {
 	}
 
 	c.JWT.AccessSecretPrivate = string(pr)
-}
-
-func (c *Config) mustSslLoad() {
-	certFd, err := os.Open(c.HTTP.CertFile)
-	if err != nil {
-		panic(fmt.Sprintf("failed to open ssl cert file: %s: %s", c.HTTP.CertFile, err))
-	}
-	defer certFd.Close()
-
-	certBytes, err := io.ReadAll(certFd)
-	if err != nil {
-		panic(fmt.Sprintf("failed to read ssl cert file: %s: %s", c.HTTP.CertFile, err))
-	}
-	c.HTTP.CertFile = string(certBytes)
-
-	keyFd, err := os.Open(c.HTTP.KeyFile)
-	if err != nil {
-		panic(fmt.Sprintf("failed to open ssl key file: %s: %s", c.HTTP.KeyFile, err))
-	}
-	defer keyFd.Close()
-
-	keyBytes, err := io.ReadAll(keyFd)
-	if err != nil {
-		panic(fmt.Sprintf("failed to read ssl key file: %s: %s", c.HTTP.KeyFile, err))
-	}
-	c.HTTP.KeyFile = string(keyBytes)
 }

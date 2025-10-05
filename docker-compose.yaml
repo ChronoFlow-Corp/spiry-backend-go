@@ -1,7 +1,7 @@
 services:
   spiry:
     build:
-      target: app
+      target: spiry
     depends_on:
       database:
           condition: service_healthy
@@ -10,6 +10,11 @@ services:
       - .env
     ports:
       - "1337:1337"
+    volumes:
+      - "${CONFIG_PATH_COMPOSE}:/app/config:ro"
+      - "${JWT_CERTS_PATH_COMPOSE}:/app/jwt:ro"
+      - "${SSL_CERTS_PATH_COMPOSE}:/app/certs:ro"
+      - "${SSL_PRIVATE_PATH_COMPOSE}:/app/private:ro"
   database:
     image: postgres
     restart: always

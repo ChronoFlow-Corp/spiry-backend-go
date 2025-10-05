@@ -26,7 +26,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-
 func main() {
 	cfg := config.Config{}
 	cfg.MustLoad()
@@ -74,7 +73,10 @@ func main() {
 		cfg.HTTP.Timeout,
 		auth,
 		j,
-		chat)
+		chat,
+		cfg.HTTP.DevOrigin,
+		cfg.HTTP.StageOrigin,
+		cfg.HTTP.ProdOrigin)
 
 	go func() {
 		fmt.Println("Starting server...")
@@ -143,4 +145,3 @@ func migrating(cfg config.Config, steps int) {
 		slog.Info("Migration completed successfully")
 	}
 }
-

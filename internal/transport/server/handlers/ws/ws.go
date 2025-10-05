@@ -38,10 +38,14 @@ type jwtProvider interface {
 	ParseAccess(raw string, f interface{}) (jwt.AccessToken, error)
 }
 
-func New(chat chatProvider, j jwtProvider) http.HandlerFunc {
+func New(chat chatProvider, j jwtProvider, stageOrigin, devOrigin, prodOrigin string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := websocket.Accept(w, r, &websocket.AcceptOptions{Subprotocols: []string{"json"}})
+		c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			Subprotocols:   []string{"json"},
+			OriginPatterns: []string{stageOrigin, devOrigin, prodOrigin},
+		})
 		if err != nil {
+			slctx.Logger(r.Context()).Debug("websocket accept error:", slog.Any("error", err))
 			tr.RespondError(w, http.StatusBadRequest, errorResponse{
 				ErrorCode: "400",
 				Message:   "cannot open websocket connection",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/getUserInfo"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/google"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/patchChat"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/refresh"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/handlers/ws"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server/middlewares"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
@@ -33,8 +35,11 @@ type Server struct {
 	certFile    string
 	keyFile     string
 	frontendURL string
+	devOrigin   string
+	stageOrigin string
+	prodOrigin  string
 	auth        service.Auth
-	ll chatting.Service
+	ll          chatting.Service
 	j           jwt.JWT
 }
 
@@ -44,7 +49,10 @@ func New(addr, certFile, keyFile, frontendURL string,
 	timeout time.Duration,
 	auth service.Auth,
 	j jwt.JWT,
-	ll chatting.Service) Server {
+	ll chatting.Service,
+	devOrigin,
+	stageOrigin,
+	prodOrigin string) Server {
 	s := &http.Server{
 		Addr:              addr + ":" + strconv.Itoa(port),
 		ReadHeaderTimeout: readHeaderTimeout,
@@ -60,6 +68,9 @@ func New(addr, certFile, keyFile, frontendURL string,
 		addr:        addr,
 		keyFile:     keyFile,
 		auth:        auth,
+		prodOrigin:  prodOrigin,
+		devOrigin:   devOrigin,
+		stageOrigin: stageOrigin,
 		ll:          ll,
 		j:           j,
 	}
@@ -77,6 +88,7 @@ func (s Server) ListenAndServe() error {
 	s.setRoutes(frontendURL)
 
 	if s.certFile != "" && s.keyFile != "" {
+		slog.Default().Debug("HTTPS server listening on " + s.addr)
 		err := s.s.ListenAndServeTLS(s.certFile, s.keyFile)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("%s: %w", op, err)
@@ -113,9 +125,12 @@ func (s Server) setRoutes(frontendURL *url.URL) {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowCredentials: true,
-	}))
+		AllowCredentials:   false,
+		OptionsPassthrough: false,
+		AllowedOrigins:     []string{s.stageOrigin, s.devOrigin, s.prodOrigin},
+		AllowedMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:     []string{"Content-Type", "Authorization"}}))
+
 	router.Route("/api", func(r chi.Router) {
 		r.Route("/connect", func(r chi.Router) {
 			r.Get("/google", google.NewRedirect(s.auth))
@@ -125,12 +140,13 @@ func (s Server) setRoutes(frontendURL *url.URL) {
 			r.Use(middlewares.AuthJwt(s.j))
 			r.Route("/user", func(r chi.Router) {
 				r.Get("/", getUserInfo.New(s.auth))
+				r.Get("/refresh", refresh.New(s.auth))
 			})
 			r.Get("/chats", getChats.New(s.ll))
 			r.Patch("/chats", patchChat.New(s.ll))
 			r.Delete("/chats", deleteChat.New(s.ll))
 		})
-		r.Get("/ws", ws.New(s.ll, s.j))
+		r.Get("/ws", ws.New(s.ll, s.j, s.stageOrigin, s.devOrigin, s.prodOrigin))
 	})
 
 	s.s.Handler = router

@@ -34,19 +34,21 @@ func New(a authProvider) http.HandlerFunc {
 		}
 
 		tr.RespondOK(w, okResponse{
-			Email:    user.Email,
-			UserName: user.Name,
-			PlanName: user.Plan.Name,
-			Theme:    user.Theme,
+			Email:     user.Email,
+			UserName:  user.Name,
+			AvatarURL: user.PictureURL,
+			PlanName:  user.Plan.Name,
+			Theme:     user.Theme,
 		})
 	}
 }
 
 type okResponse struct {
-	Email    string `json:"email"`
-	UserName string `json:"user_name"`
-	PlanName string `json:"plan_name"`
-	Theme    string `json:"theme"`
+	Email     string `json:"email"`
+	UserName  string `json:"username"`
+	AvatarURL string `json:"avatarUrl"`
+	PlanName  string `json:"subscription"`
+	Theme     string `json:"theme"`
 }
 type errorResponse struct {
 	Message string `json:"message"`

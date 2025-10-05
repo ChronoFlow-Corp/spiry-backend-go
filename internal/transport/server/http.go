@@ -136,11 +136,11 @@ func (s Server) setRoutes(frontendURL *url.URL) {
 			r.Get("/google", google.NewRedirect(s.auth))
 			r.Get("/google/callback", google.NewCallback(frontendURL, s.addr, s.auth))
 		})
+		r.Get("/refresh", refresh.New(s.auth))
 		r.Route("/", func(r chi.Router) {
 			r.Use(middlewares.AuthJwt(s.j))
 			r.Route("/user", func(r chi.Router) {
 				r.Get("/", getUserInfo.New(s.auth))
-				r.Get("/refresh", refresh.New(s.auth))
 			})
 			r.Get("/chats", getChats.New(s.ll))
 			r.Patch("/chats", patchChat.New(s.ll))

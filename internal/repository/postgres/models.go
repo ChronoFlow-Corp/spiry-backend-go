@@ -14,7 +14,7 @@ type user struct {
 	ID                 uuid.UUID `db:"id"`
 	Email              string    `db:"email"`
 	Name               string    `db:"name"`
-	Picture            string    `db:"picture"`
+	Picture            string    `db:"picture_url"`
 	AccessTokenGoogle  string    `db:"access_token_google"`
 	RefreshTokenGoogle string    `db:"refresh_token_google"`
 	RefreshToken       string    `db:"refresh_token"`

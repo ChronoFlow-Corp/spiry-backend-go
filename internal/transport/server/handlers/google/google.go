@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository"
@@ -72,6 +73,9 @@ func NewCallback(frontendURL *url.URL, backendDomain string, a authProvider) htt
 			SameSite: http.SameSiteLaxMode,
 		})
 
+		q := frontendURL.Query()
+		q.Set("code", strconv.Itoa(http.StatusOK))
+		frontendURL.RawQuery = q.Encode()
 		http.Redirect(w, r, frontendURL.String(), http.StatusPermanentRedirect)
 	}
 }

@@ -112,14 +112,21 @@ func (a Auth) Login(ctx context.Context, state map[string]string, code string) (
 	if err != nil {
 		var notFoundErr *repository.ErrorNotFound
 		if errors.As(err, &notFoundErr) {
+			userID := uuid.New()
+			access, refresh, err := a.jwt.NewPair(userID.String())
+
+			if err != nil {
+				return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
+			}
+
 			u := entities.NewUser(
-				uuid.New(),
+				userID,
 				info.Email,
 				info.Name,
 				info.Picture,
 				t.t.AccessToken,
 				t.t.RefreshToken,
-				t.t.RefreshToken,
+				refresh.Raw,
 				"en",
 				false,
 				entities.NewFreePlan(),
@@ -127,11 +134,6 @@ func (a Auth) Login(ctx context.Context, state map[string]string, code string) (
 			)
 
 			err = a.registerUser(ctx, u)
-			if err != nil {
-				return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
-			}
-
-			access, refresh, err := a.jwt.NewPair(u.ID.String())
 			if err != nil {
 				return jwt.AccessToken{}, jwt.RefreshToken{}, fmt.Errorf("%s: %w", op, err)
 			}

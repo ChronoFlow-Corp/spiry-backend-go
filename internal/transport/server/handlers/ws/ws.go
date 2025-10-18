@@ -184,7 +184,7 @@ func handlerMessage(
 }
 
 func getUserID(r *http.Request, j jwtProvider) *uuid.UUID {
-	raw := r.Header.Get("Authorization")
+	raw := r.URL.Query().Get("token")
 	if raw == "" {
 		return nil
 	}

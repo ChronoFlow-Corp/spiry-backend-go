@@ -1,18 +1,43 @@
 version: "2"
+
 linters:
-  settings:
-    tagalign:
-      align: true
-      strict: true
-    depguard:
-      rules:
-        main:
-          allow:
-            - $gostd
-            - github.com/ilyakaznacheev/cleanenv
-            - github.com/jmoiron/sqlx
-            - github.com/ChronoFlow-Corp/spiry-backend-go/internal/config
-            - github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server
-  default: all
   enable:
-    - canonicalheader
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - whitespace
+
+  disable-all: true
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+    - golines
+    - swaggo
+
+linter_settings:
+  govet:
+    check-shadowing: true
+  staticcheck:
+    checks: ["all"]
+  errcheck:
+    exclude-functions:
+      - bytes.(*Reader).ReadAt
+      - io.(*PipeReader).Read
+
+run:
+  timeout: 5m
+  concurrency: 4
+  modules-download-mode: readonly
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters: [gofmt]

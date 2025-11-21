@@ -12,29 +12,29 @@ import (
 
 // Config struct contains all for start spiry application.
 type Config struct {
-	Env string `env:"ENV" yaml:"env" env-default:"development"`
+	Env        string     `yaml:"env"      env:"ENV" env-default:"development"`
 	HTTP       http       `yaml:"http"`
 	GoogleAuth googleAuth `yaml:"google"`
-	Database   database   `yaml:"database" env-required:"true"`
+	Database   database   `yaml:"database"                                     env-required:"true"`
 	JWT        jwt        `yaml:"jwt"`
-	LLM llm    `yaml:"llm"`
+	LLM        llm        `yaml:"llm"                                          env-required:"true"`
 }
 
 type database struct {
 	PostgresPassword string `yaml:"postgresPassword" env-required:"true"`
-	PostgresHost     string `yaml:"postgresHost" env-required:"true"`
-	PostgresPort     string `yaml:"postgresPort" env-required:"true"`
-	PostgresUser     string `yaml:"postgresUser" env-required:"true"`
+	PostgresHost     string `yaml:"postgresHost"     env-required:"true"`
+	PostgresPort     string `yaml:"postgresPort"     env-required:"true"`
+	PostgresUser     string `yaml:"postgresUser"     env-required:"true"`
 	PostgresDatabase string `yaml:"postgresDatabase" env-required:"true"`
 	PathToMigrations string `yaml:"pathToMigrations"`
 }
 
 type jwt struct {
-	RefreshSecret       string        `yaml:"refreshSecret" env-required:"true"`
-	AccessSecretPublic  string        `yaml:"accessSecretPublic" env-required:"true"`
+	RefreshSecret       string        `yaml:"refreshSecret"       env-required:"true"`
+	AccessSecretPublic  string        `yaml:"accessSecretPublic"  env-required:"true"`
 	AccessSecretPrivate string        `yaml:"accessSecretPrivate" env-required:"true"`
-	AccessExpire        time.Duration `yaml:"accessExpire" env-default:"3h"`
-	RefreshExpire       time.Duration `yaml:"refreshExpire" env-default:"24h"`
+	AccessExpire        time.Duration `yaml:"accessExpire"                            env-default:"3h"`
+	RefreshExpire       time.Duration `yaml:"refreshExpire"                           env-default:"24h"`
 }
 type http struct {
 	Addr        string        `env:"HTTP_ADDR"       env-default:"localhost" yaml:"addr"`
@@ -42,18 +42,17 @@ type http struct {
 	Timeout     time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"        yaml:"timeout"`
 	CertFile    string        `env:"HTTPS_CERT_FILE"                         yaml:"certFile"`
 	KeyFile     string        `env:"HTTPS_KEY_FILE"                          yaml:"keyFile"`
-	FrontendURL string        `env:"FRONTEND_URL" yaml:"frontendURL" env-required:"true"`
+	FrontendURL string        `env:"FRONTEND_URL"                            yaml:"frontendURL" env-required:"true"`
 }
 
 type googleAuth struct {
 	ClientID     string `env:"GOOGLE_CLIENT_ID"     env-required:"true" yaml:"clientId"`
 	ClientSecret string `env:"GOOGLE_CLIENT_SECRET" env-required:"true" yaml:"clientSecret"`
-	RedirectURI  string `env:"GOOGLE_REDIRECT_URI" env-required:"true" yaml:"redirectURI"`
+	RedirectURI  string `env:"GOOGLE_REDIRECT_URI"  env-required:"true" yaml:"redirectURI"`
 }
 
 type llm struct {
-	Key         string `env:"LLM_KEY" env-required:"true" yaml:"key"`
-	URL         string `env:"LLM_URL" env-required:"true" yaml:"url"`
+	Key string `env-required:"true" yaml:"key"`
 }
 
 // MustLoad modify config struct if you have error it panics.
@@ -73,6 +72,12 @@ func (c *Config) MustLoad() {
 	if c.HTTP.CertFile != "" && c.HTTP.KeyFile != "" {
 		c.mustSslLoad()
 	}
+}
+
+func NewConfig() *Config {
+	cfg := &Config{}
+	cfg.MustLoad()
+	return cfg
 }
 
 func (c *Config) mustJwtLoad() {

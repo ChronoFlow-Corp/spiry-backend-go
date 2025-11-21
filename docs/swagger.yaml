@@ -1,0 +1,77 @@
+basePath: /api
+definitions:
+  response.Error:
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+    type: object
+  response.Refresh:
+    properties:
+      access_token:
+        type: string
+    type: object
+info:
+  contact: {}
+  title: Spirx API
+  version: "1.0"
+paths:
+  /api/auth/refresh:
+    get:
+      parameters:
+      - description: Session cookie
+        example: '"eyJhbGciOiJIUzUx..."'
+        in: header
+        name: Cookie
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Refresh'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: generate new jwt pair
+      tags:
+      - auth
+  /api/connect/google:
+    get:
+      parameters:
+      - description: <device-name>
+        example: '"PostmanRuntime/7.48.0"'
+        in: header
+        name: User-Agent
+        required: true
+        type: string
+      responses:
+        "307":
+          description: Temporary Redirect
+          headers:
+            Set-Cookie:
+              description: Set refresh token cookie; e.g. refresh_token=<token>; HttpOnly;
+                Path=/api/refresh; Secure
+              type: string
+      summary: redirect to google oAuth URL
+      tags:
+      - auth
+  /api/connect/google/callback:
+    get:
+      responses:
+        "307":
+          description: Temporary Redirect
+      summary: google redirect to this route
+      tags:
+      - auth
+swagger: "2.0"

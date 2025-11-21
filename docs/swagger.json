@@ -1,0 +1,118 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Spirx API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/api",
+    "paths": {
+        "/api/auth/refresh": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "generate new jwt pair",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "\"eyJhbGciOiJIUzUx...\"",
+                        "description": "Session cookie",
+                        "name": "Cookie",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Refresh"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/connect/google": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "redirect to google oAuth URL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "\"PostmanRuntime/7.48.0\"",
+                        "description": "\u003cdevice-name\u003e",
+                        "name": "User-Agent",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "307": {
+                        "description": "Temporary Redirect",
+                        "headers": {
+                            "Set-Cookie": {
+                                "type": "string",
+                                "description": "Set refresh token cookie; e.g. refresh_token=\u003ctoken\u003e; HttpOnly; Path=/api/refresh; Secure"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/connect/google/callback": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "google redirect to this route",
+                "responses": {
+                    "307": {
+                        "description": "Temporary Redirect"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "response.Error": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.Refresh": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

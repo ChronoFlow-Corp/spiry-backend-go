@@ -1,11 +1,11 @@
 services:
   spiry:
     build:
-      target: spiry
+      target: spirx
     depends_on:
       database:
-          condition: service_healthy
-          restart: true
+        condition: service_healthy
+        restart: true
     env_file:
       - .env
     ports:

@@ -1,4 +1,4 @@
-FROM golang:1.24.5 as spiry
+FROM golang:1.25.0 as spirx
 
 WORKDIR /app
 

@@ -1,147 +1,165 @@
 package main
 
 import (
-	"context"
-	"database/sql"
-	"flag"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"net/url"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
+	_ "github.com/ChronoFlow-Corp/spiry-backend-go/docs"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/service/auth"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/service/chatting"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/config"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/repository/postgres"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/service/chatting"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/transport/server"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/jwt"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/llm"
-	"github.com/golang-migrate/migrate/v4"
-	ps "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/service"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/auth/connect"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/auth/jwt"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/llm"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/pgx"
+	authRepository "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/repository/auth"
+	chattingRepository "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/repository/chatting"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/chats"
+	chatsStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/chats/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/commands"
+	commandsStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/commands/pgx"
+	commandsmedia "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/commands_medias"
+	commandsMediaStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/commands_medias/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/models"
+	modelsStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/models/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/plans"
+	plansStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/plans/pgx"
+	resultmedias "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/result_medias"
+	resultsMediasStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/result_medias/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/results"
+	resultsStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/results/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/sessions"
+	sessionStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/sessions/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/subscriptions"
+	subStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/subscriptions/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/tools"
+	toolsStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/tools/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/users"
+	userStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/users/pgx"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/interface/api/rest"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/interface/api/rest/handlers"
+	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	"go.uber.org/fx"
 )
 
+func AsRoute(f any) any {
+	return fx.Annotate(
+		f,
+		fx.As(new(rest.RouteModule)),
+		fx.ResultTags(`group:"routes"`),
+	)
+}
+
+// main godoc
+//
+//	@title		Spirx API
+//	@version	1.0
+//	@BasePath	/api
 func main() {
-	cfg := config.Config{}
-	cfg.MustLoad()
+	app := fx.New(
+		fx.Provide(
+			config.NewConfig,
+			pgx.NewPool,
+			pgx.NewManager,
+			fx.Annotate(
+				plansStorage.NewPgx,
+				fx.As(new(plans.PlanStorage)),
+			),
+			fx.Annotate(
+				subStorage.NewPgx,
+				fx.As(new(subscriptions.SubscriptionStorage)),
+			),
 
-	steps := flag.Int("steps", 0, "number of steps to migrate, positive to migrate up, negative to migrate down")
-	flag.Parse()
+			fx.Annotate(
+				userStorage.NewPgx,
+				fx.As(new(users.UserStorage)),
+			),
+			fx.Annotate(
+				sessionStorage.NewPgx,
+				fx.As(new(sessions.SessionStorage)),
+			),
 
-	if steps != nil && *steps != 0 {
-		migrating(cfg, *steps)
-	}
+			fx.Annotate(
+				modelsStorage.NewPgx,
+				fx.As(new(models.ModelStorage)),
+			),
+			fx.Annotate(
+				chatsStorage.NewPgx,
+				fx.As(new(chats.ChatStorage)),
+			),
+			fx.Annotate(
+				toolsStorage.NewPgx,
+				fx.As(new(tools.ToolStorage)),
+			),
+			fx.Annotate(
+				commandsStorage.NewPgx,
+				fx.As(new(commands.CommandStorage)),
+			),
+			fx.Annotate(
+				commandsMediaStorage.NewPgx,
+				fx.As(new(commandsmedia.CommandMediaStorage)),
+			),
+			fx.Annotate(
+				resultsMediasStorage.NewPgx,
+				fx.As(new(resultmedias.ResultMediaStorage)),
+			),
 
-	setLogger(cfg.Env)
+			fx.Annotate(
+				resultsStorage.NewPgx,
+				fx.As(new(results.ResultStorage)),
+			),
+			fx.Annotate(
+				authRepository.NewAuthRepository,
+				fx.As(new(auth.UseCaseRepository)),
+				fx.As(new(chatting.AuthRepository)),
+			),
 
-	db, err := postgres.New(cfg.Database.PostgresHost,
-		cfg.Database.PostgresPort,
-		cfg.Database.PostgresUser,
-		cfg.Database.PostgresPassword,
-		cfg.Database.PostgresDatabase)
-	if err != nil {
-		panic(err)
-	}
+			fx.Annotate(
+				connect.NewGoogleOauthFx,
+				fx.As(new(auth.OAuthProvider)),
+			),
 
-	j := jwt.New([]byte(cfg.JWT.AccessSecretPrivate),
-		[]byte(cfg.JWT.AccessSecretPublic),
-		[]byte(cfg.JWT.RefreshSecret),
-		cfg.JWT.AccessExpire,
-		cfg.JWT.RefreshExpire)
+			fx.Annotate(
+				jwt.NewFx,
+				fx.As(new(auth.TokenProvider)),
+				fx.As(new(handlers.JWTProvider)),
+			),
 
-	auth := service.New(cfg.GoogleAuth.ClientID, cfg.GoogleAuth.ClientSecret,
-		"http://localhost:1337/api/connect/google/callback", db, j)
+			fx.Annotate(
+				auth.NewAuthUseCase,
+				fx.As(new(auth.Service)),
+			),
 
-	llmUrl, err := url.Parse(cfg.LLM.URL)
-	if err != nil {
-		panic("invalid LLM URL")
-	}
+			fx.Annotate(
+				chattingRepository.NewRepository,
+				fx.As(new(chatting.UseCaseRepository)),
+			),
 
-	chat := chatting.NewChat(llm.NewClient(cfg.LLM.Key, llmUrl), db, db, db, db, db)
+			fx.Annotate(llm.NewOpenRouter, fx.As(new(service.LLmClient))),
+			fx.Annotate(service.NewChatting),
+			fx.Annotate(chatting.NewChatting, fx.As(new(chatting.Service))),
 
-	srv := server.New(
-		cfg.HTTP.Addr,
-		cfg.HTTP.CertFile,
-		cfg.HTTP.KeyFile,
-		cfg.HTTP.FrontendURL,
-		cfg.HTTP.Port,
-		cfg.HTTP.Timeout,
-		auth,
-		j,
-		chat,
-		cfg.HTTP.DevOrigin,
-		cfg.HTTP.StageOrigin,
-		cfg.HTTP.ProdOrigin)
+			AsRoute(handlers.NewAuthModule),
+			AsRoute(handlers.NewChattingModule),
 
-	go func() {
-		fmt.Println("Starting server...")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("ListenAndServe(): %v", err)
-		}
-	}()
+			fx.Annotate(
+				rest.NewServeMux,
+				fx.As(new(chi.Router)),
+				fx.ParamTags(`group:"routes"`),
+			),
 
-	// Wait for interrupt signal to gracefully shut down the server.
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+			slog.Default,
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+			fx.Annotate(
+				rest.NewHTTPServer,
+			),
+		),
+		fx.Invoke(
+			func(srv *http.Server) {}),
+	)
 
-	if err := srv.Shutdown(ctx); err != nil {
-		fmt.Printf("Server forced to shutdown: %v", err)
-	}
-}
-
-func setLogger(level string) {
-	switch level {
-	case "development":
-		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})))
-		return
-	case "production":
-		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
-		return
-	}
-}
-
-func migrating(cfg config.Config, steps int) {
-	const op = "migrating"
-
-	db, err := sql.Open("postgres",
-		fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-			cfg.Database.PostgresUser,
-			cfg.Database.PostgresPassword,
-			cfg.Database.PostgresHost,
-			cfg.Database.PostgresPort,
-			cfg.Database.PostgresDatabase,
-			"disable"))
-	if err != nil {
-		slog.Error(op, slog.String("err", err.Error()))
-		os.Exit(1)
-	}
-
-	driver, err := ps.WithInstance(db, &ps.Config{})
-	if err != nil {
-		slog.Error(op, slog.String("err", err.Error()))
-		os.Exit(1)
-	}
-
-	m, err := migrate.NewWithDatabaseInstance("file://migrations", "postgres", driver)
-	if err != nil {
-		slog.Error(op, slog.String("err", err.Error()))
-		os.Exit(1)
-	}
-	slog.Info(op, slog.Int("steps", steps))
-
-	err = m.Steps(steps)
-	if err != nil {
-		slog.Error(op, slog.String("err", err.Error()))
-	} else {
-		slog.Info("Migration completed successfully")
-	}
+	app.Run()
 }

@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="SqlDialectMappings">
-    <file url="file://$PROJECT_DIR$/internal/repository/postgres/auth.go" dialect="GenericSQL" />
-    <file url="file://$PROJECT_DIR$/internal/repository/postgres/chat.go" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/internal/infrastructure/sql/postgres/auth.go" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/migrations/1_user.up.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/migrations/2_chat.up.sql" dialect="PostgreSQL" />
   </component>
 </project>

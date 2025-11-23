@@ -12,4 +12,5 @@ type Service interface {
 	GetAuthURI(device string) string
 	Refresh(ctx context.Context, cm command.Refresh) (result.Refresh, error)
 	LogOut(ctx context.Context, cm command.Logout) error
+	UserInfo(ctx context.Context) (result.UserInfo, error)
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/model"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
@@ -22,10 +21,30 @@ type jwtProvider interface {
 }
 
 func AuthJwt(j jwtProvider) func(next http.Handler) http.Handler {
-	const op = "transport.middlewares.AuthJwt"
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
-			raw := r.Header.Get("Authorization")
+			accessCookie, err := r.Cookie("access_token")
+			if err != nil {
+				slctx.Logger(r.Context()).Debug("No access token cookie", slog.Any("error", err))
+
+				pkg.RespondError(w, http.StatusUnauthorized, response.Error{
+					Code:    http.StatusUnauthorized,
+					Message: "Access token required",
+				})
+				return
+			}
+
+			err = accessCookie.Valid()
+			if err != nil {
+				slctx.Logger(r.Context()).Debug("Access token is invalid", slog.Any("error", err))
+
+				pkg.RespondError(w, http.StatusUnauthorized, response.Error{
+					Code:    http.StatusUnauthorized,
+					Message: "Access token is invalid",
+				})
+			}
+
+			raw := accessCookie.Value
 			if raw == "" {
 				slctx.Logger(r.Context()).Debug("No Authorization header")
 				pkg.RespondError(
@@ -35,28 +54,8 @@ func AuthJwt(j jwtProvider) func(next http.Handler) http.Handler {
 				)
 				return
 			}
-			if !strings.HasPrefix(raw, "Bearer ") {
-				slctx.Logger(r.Context()).Debug("Authorization header does not start with Bearer")
-				pkg.RespondError(
-					w,
-					http.StatusUnauthorized,
-					response.Error{Message: "Authorization required"},
-				)
-				return
-			}
 
-			rawToken := strings.TrimPrefix(raw, "Bearer ")
-			if rawToken == "" {
-				slctx.Logger(r.Context()).Debug("No token provided after Bearer")
-				pkg.RespondError(
-					w,
-					http.StatusUnauthorized,
-					response.Error{Message: "Authorization required"},
-				)
-				return
-			}
-
-			token, err := j.ParseAccess(rawToken, exJwt.ParseRSAPublicKeyFromPEM)
+			token, err := j.ParseAccess(raw, exJwt.ParseRSAPublicKeyFromPEM)
 			if err != nil {
 				if errors.Is(err, jwt.ErrExpired) {
 					slctx.Logger(r.Context()).Debug("Token expired")
@@ -77,7 +76,7 @@ func AuthJwt(j jwtProvider) func(next http.Handler) http.Handler {
 				}
 
 				slctx.Logger(r.Context()).Error("Token parse error",
-					slog.String("token", rawToken),
+					slog.String("token", raw),
 					slog.Any("err", err))
 
 				return
@@ -97,10 +96,7 @@ func AuthJwt(j jwtProvider) func(next http.Handler) http.Handler {
 func TryAuthJwt(j jwtProvider) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
-			raw := r.Header.Get("Authorization")
-			if raw != "" {
-				r = r.WithContext(addTokenCtx(r.Context(), j, w, r))
-			}
+			r = r.WithContext(addTokenCtx(r.Context(), j, w, r))
 
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			next.ServeHTTP(ww, r)
@@ -116,7 +112,21 @@ func addTokenCtx(
 	w http.ResponseWriter,
 	r *http.Request,
 ) context.Context {
-	raw := r.Header.Get("Authorization")
+	accessCookie, err := r.Cookie("access_token")
+	if err != nil {
+		slctx.Logger(ctx).Debug("No access token cookie", slog.Any("error", err))
+
+		return ctx
+	}
+
+	err = accessCookie.Valid()
+	if err != nil {
+		slctx.Logger(ctx).Debug("Invalid cookie", slog.Any("error", err))
+
+		pkg.RespondError(w, http.StatusUnauthorized, response.Error{Message: "Invalid cookie"})
+	}
+
+	raw := accessCookie.Value
 	if raw == "" {
 		slctx.Logger(r.Context()).Debug("No Authorization header")
 		pkg.RespondError(
@@ -126,28 +136,8 @@ func addTokenCtx(
 		)
 		return ctx
 	}
-	if !strings.HasPrefix(raw, "Bearer ") {
-		slctx.Logger(r.Context()).Debug("Authorization header does not start with Bearer")
-		pkg.RespondError(
-			w,
-			http.StatusUnauthorized,
-			response.Error{Message: "Authorization required"},
-		)
-		return ctx
-	}
 
-	rawToken := strings.TrimPrefix(raw, "Bearer ")
-	if rawToken == "" {
-		slctx.Logger(r.Context()).Debug("No token provided after Bearer")
-		pkg.RespondError(
-			w,
-			http.StatusUnauthorized,
-			response.Error{Message: "Authorization required"},
-		)
-		return ctx
-	}
-
-	token, err := j.ParseAccess(rawToken, exJwt.ParseRSAPublicKeyFromPEM)
+	token, err := j.ParseAccess(raw, exJwt.ParseRSAPublicKeyFromPEM)
 	if err != nil {
 		if errors.Is(err, jwt.ErrExpired) {
 			slctx.Logger(r.Context()).Debug("Token expired")
@@ -168,7 +158,7 @@ func addTokenCtx(
 		}
 
 		slctx.Logger(r.Context()).Error("Token parse error",
-			slog.String("token", rawToken),
+			slog.String("token", raw),
 			slog.Any("err", err))
 
 		return ctx

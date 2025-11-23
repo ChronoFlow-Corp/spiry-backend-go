@@ -118,7 +118,7 @@ func (j JWT) ParseAccess(raw string, f interface{}) (model.ParsedToken, error) {
 		return model.ParsedToken{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 
-	return model.ParsedToken{UserID: userID, SessionID: sessionID}, nil
+	return model.ParsedToken{UserID: userID, SessionID: sessionID, ExpireAt: cl.ExpiresAt.Time}, nil
 }
 
 // ParseRefresh parse raw token and return claims.

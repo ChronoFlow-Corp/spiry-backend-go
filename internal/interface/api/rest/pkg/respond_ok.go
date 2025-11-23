@@ -13,7 +13,12 @@ func RespondOK(w http.ResponseWriter, data interface{}) {
 		return
 	}
 
+	if data == nil {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(raw)
+	_, _ = w.Write(raw)
 }

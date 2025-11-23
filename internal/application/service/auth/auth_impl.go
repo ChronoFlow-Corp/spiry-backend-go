@@ -12,6 +12,7 @@ import (
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/aggregates"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
 	"github.com/google/uuid"
 )
 
@@ -22,6 +23,7 @@ type UseCaseRepository interface {
 	GetBaseSubscription(ctx context.Context) (*entities.Subscription, error)
 	GetModels(ctx context.Context) ([]*entities.Model, error)
 	GetModelByName(ctx context.Context, name string) (*entities.Model, error)
+	GetSubscriptionByID(ctx context.Context, id uuid.UUID) (*entities.Subscription, error)
 }
 
 type OAuthProvider interface {
@@ -132,6 +134,42 @@ func (uc *UseCase) LogOut(ctx context.Context, cm command.Logout) error {
 	return nil
 }
 
+func (uc *UseCase) UserInfo(ctx context.Context) (result.UserInfo, error) {
+	const op = "application.UseCase.UserInfo"
+
+	userID, ok := models.GetUserIDFromCtx(ctx)
+	if !ok {
+		return result.UserInfo{}, fmt.Errorf("%s: %w", op, errors.New("user id not provided"))
+	}
+
+	u, err := uc.repo.GetUserByID(ctx, *userID)
+	if err != nil {
+		return result.UserInfo{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	sub, err := uc.repo.GetSubscriptionByID(ctx, u.Plan.SubscriptionID)
+	if err != nil {
+		return result.UserInfo{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return result.UserInfo{
+		ID:        u.ID,
+		Name:      u.Name,
+		Email:     u.Email,
+		AvatarURL: u.AvatarURL,
+		Plan: result.Plan{
+			ID:        u.Plan.ID,
+			Name:      sub.Name,
+			Price:     sub.Price,
+			CreatedAt: u.Plan.CreatedAt,
+			UpdatedAt: u.Plan.UpdatedAt,
+		},
+		Theme:     string(u.Theme),
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}, nil
+}
+
 func (uc *UseCase) addLogin(
 	ctx context.Context,
 	cm command.Login,
@@ -219,14 +257,14 @@ func (uc *UseCase) newLogin(
 	)
 	sessionEntity.ID = sessionID
 
-	models, err := uc.repo.GetModels(ctx)
+	modelsList, err := uc.repo.GetModels(ctx)
 	if err != nil {
 		return result.Login{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	allowedModels := make([]*entities.Model, 0, len(models))
+	allowedModels := make([]*entities.Model, 0, len(modelsList))
 
-	for _, m := range models {
+	for _, m := range modelsList {
 		if m.MinLevel >= sub.Level {
 			allowedModels = append(allowedModels, m)
 		}

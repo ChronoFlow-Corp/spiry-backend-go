@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/config"
@@ -33,6 +34,7 @@ func NewHTTPServer(
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			SetLogger(cfg)
 			ln, err := net.Listen("tcp", srv.Addr)
 			if err != nil {
 				return err
@@ -50,6 +52,21 @@ func NewHTTPServer(
 	})
 
 	return srv
+}
+
+func SetLogger(cfg *config.Config) {
+	switch cfg.Env {
+	case "development":
+		slog.SetDefault(
+			slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		)
+		return
+	case "production":
+		slog.SetDefault(
+			slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		)
+		return
+	}
 }
 
 func (s *Server) Start() error {

@@ -5,5 +5,4 @@ import "github.com/google/uuid"
 type UpdateTitle struct {
 	ChatID uuid.UUID
 	Title  string
-	UserID uuid.UUID
 }

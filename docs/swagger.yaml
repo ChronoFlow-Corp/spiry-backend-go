@@ -1,5 +1,27 @@
 basePath: /api
 definitions:
+  request.UpdateChat:
+    properties:
+      chat_id:
+        type: string
+      new_title:
+        type: string
+    type: object
+  response.Chat:
+    properties:
+      created_at:
+        type: string
+      history:
+        items:
+          $ref: '#/definitions/response.Message'
+        type: array
+      id:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
   response.Error:
     properties:
       code:
@@ -7,9 +29,73 @@ definitions:
       message:
         type: string
     type: object
-  response.Refresh:
+  response.Message:
     properties:
-      access_token:
+      created_at:
+        type: string
+      flags:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      model:
+        $ref: '#/definitions/response.Model'
+      settings:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        type: string
+      text:
+        type: string
+      tool:
+        $ref: '#/definitions/response.Tool'
+    type: object
+  response.Model:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  response.Plan:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      price:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  response.Tool:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  response.UserInfo:
+    properties:
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      plan:
+        $ref: '#/definitions/response.Plan'
+      theme:
+        type: string
+      updated_at:
         type: string
     type: object
 info:
@@ -17,6 +103,22 @@ info:
   title: Spirx API
   version: "1.0"
 paths:
+  /api/auth/logout:
+    get:
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Logout from session
+      tags:
+      - auth
   /api/auth/refresh:
     get:
       parameters:
@@ -29,8 +131,11 @@ paths:
       responses:
         "200":
           description: OK
-          schema:
-            $ref: '#/definitions/response.Refresh'
+          headers:
+            Set-Cookie:
+              description: Set access token cookie; e.g. access_token=<token>; HttpOnly;
+                Path=/; Secure
+              type: string
         "400":
           description: Bad Request
           schema:
@@ -46,6 +151,127 @@ paths:
       summary: generate new jwt pair
       tags:
       - auth
+  /api/auth/user-info:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.UserInfo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Return user info
+      tags:
+      - auth
+  /api/chatting/chat:
+    delete:
+      parameters:
+      - description: ID for delete
+        in: query
+        name: chat_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Delete chat
+      tags:
+      - chatting
+    get:
+      parameters:
+      - description: If provided return chat object with history
+        in: query
+        name: chat_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/response.Chat'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: get chats list or chat history selected chat.
+      tags:
+      - chatting
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Payload
+        in: body
+        name: chat_info
+        required: true
+        schema:
+          $ref: '#/definitions/request.UpdateChat'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: update chat title
+      tags:
+      - chatting
+  /api/chatting/ws:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: websocket
+        in: header
+        name: Upgrade
+        required: true
+        type: string
+      - description: upgrade
+        in: header
+        name: Connection
+        required: true
+        type: string
+      - description: need access token if exist also provide bearer prefix
+        example: '"Bearer <token>"'
+        in: header
+        name: Sec-WebSocket-Protocol
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      summary: Connection to ws
+      tags:
+      - chatting
   /api/connect/google:
     get:
       parameters:
@@ -60,8 +286,8 @@ paths:
           description: Temporary Redirect
           headers:
             Set-Cookie:
-              description: Set refresh token cookie; e.g. refresh_token=<token>; HttpOnly;
-                Path=/api/refresh; Secure
+              description: Set access token cookie; e.g. access_token=<token>; HttpOnly;
+                Path=/; Secure
               type: string
       summary: redirect to google oAuth URL
       tags:

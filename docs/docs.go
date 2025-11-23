@@ -15,6 +15,31 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/auth/logout": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout from session",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/refresh": {
             "get": {
                 "tags": [
@@ -34,8 +59,11 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Refresh"
+                        "headers": {
+                            "Set-Cookie": {
+                                "type": "string",
+                                "description": "Set access token cookie; e.g. access_token=\u003ctoken\u003e; HttpOnly; Path=/; Secure"
+                            }
                         }
                     },
                     "400": {
@@ -57,6 +85,190 @@ const docTemplate = `{
                         }
                     }
                 }
+            }
+        },
+        "/api/auth/user-info": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Return user info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.UserInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chatting/chat": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chatting"
+                ],
+                "summary": "get chats list or chat history selected chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "If provided return chat object with history",
+                        "name": "chat_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/response.Chat"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "chatting"
+                ],
+                "summary": "Delete chat",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID for delete",
+                        "name": "chat_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chatting"
+                ],
+                "summary": "update chat title",
+                "parameters": [
+                    {
+                        "description": "Payload",
+                        "name": "chat_info",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.UpdateChat"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chatting/ws": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chatting"
+                ],
+                "summary": "Connection to ws",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "websocket",
+                        "name": "Upgrade",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "upgrade",
+                        "name": "Connection",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"Bearer \u003ctoken\u003e\"",
+                        "description": "need access token if exist also provide bearer prefix",
+                        "name": "Sec-WebSocket-Protocol",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {}
             }
         },
         "/api/connect/google": {
@@ -81,7 +293,7 @@ const docTemplate = `{
                         "headers": {
                             "Set-Cookie": {
                                 "type": "string",
-                                "description": "Set refresh token cookie; e.g. refresh_token=\u003ctoken\u003e; HttpOnly; Path=/api/refresh; Secure"
+                                "description": "Set access token cookie; e.g. access_token=\u003ctoken\u003e; HttpOnly; Path=/; Secure"
                             }
                         }
                     }
@@ -103,6 +315,40 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "request.UpdateChat": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "new_title": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.Chat": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.Message"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "response.Error": {
             "type": "object",
             "properties": {
@@ -114,10 +360,108 @@ const docTemplate = `{
                 }
             }
         },
-        "response.Refresh": {
+        "response.Message": {
             "type": "object",
             "properties": {
-                "access_token": {
+                "created_at": {
+                    "type": "string"
+                },
+                "flags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "$ref": "#/definitions/response.Model"
+                },
+                "settings": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "tool": {
+                    "$ref": "#/definitions/response.Tool"
+                }
+            }
+        },
+        "response.Model": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.Plan": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.Tool": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.UserInfo": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "plan": {
+                    "$ref": "#/definitions/response.Plan"
+                },
+                "theme": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }

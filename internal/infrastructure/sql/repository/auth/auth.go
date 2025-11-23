@@ -188,6 +188,20 @@ func (r *Repository) GetModelByName(ctx context.Context, name string) (*entities
 	return model, nil
 }
 
+func (r *Repository) GetSubscriptionByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*entities.Subscription, error) {
+	const op = "sql.repository.auth.GetSubscriptionByID"
+
+	sub, err := r.subscription.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return sub, nil
+}
+
 func (r *Repository) aggregateFromUser(
 	ctx context.Context,
 	us *entities.User,

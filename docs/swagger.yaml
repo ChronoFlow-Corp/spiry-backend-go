@@ -103,6 +103,14 @@ info:
   title: Spirx API
   version: "1.0"
 paths:
+  /api/auth/connect/google/callback:
+    get:
+      responses:
+        "307":
+          description: Temporary Redirect
+      summary: google redirect to this route
+      tags:
+      - auth
   /api/auth/logout:
     get:
       responses:
@@ -290,14 +298,6 @@ paths:
                 Path=/; Secure
               type: string
       summary: redirect to google oAuth URL
-      tags:
-      - auth
-  /api/connect/google/callback:
-    get:
-      responses:
-        "307":
-          description: Temporary Redirect
-      summary: google redirect to this route
       tags:
       - auth
 swagger: "2.0"

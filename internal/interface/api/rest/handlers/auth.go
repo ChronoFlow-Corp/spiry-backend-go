@@ -51,6 +51,7 @@ func (a *AuthModule) Register(r chi.Router) {
 
 		r.Group(func(r chi.Router) {
 			r.Use(middlewares.AuthJwt(a.j))
+			r.Get("/user-info", a.UserInfo)
 			r.Get("/logout", a.Logout)
 		})
 	})
@@ -82,7 +83,7 @@ func (a *AuthModule) Login(w http.ResponseWriter, r *http.Request) {
 //	@Tags		auth
 //	@Success	307
 //	@Failure	307
-//	@Router		/api/connect/google/callback [get]
+//	@Router		/api/auth/connect/google/callback [get]
 func (a *AuthModule) Callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")

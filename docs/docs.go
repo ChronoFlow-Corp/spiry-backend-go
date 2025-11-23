@@ -15,6 +15,19 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/auth/connect/google/callback": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "google redirect to this route",
+                "responses": {
+                    "307": {
+                        "description": "Temporary Redirect"
+                    }
+                }
+            }
+        },
         "/api/auth/logout": {
             "get": {
                 "tags": [
@@ -296,19 +309,6 @@ const docTemplate = `{
                                 "description": "Set access token cookie; e.g. access_token=\u003ctoken\u003e; HttpOnly; Path=/; Secure"
                             }
                         }
-                    }
-                }
-            }
-        },
-        "/api/connect/google/callback": {
-            "get": {
-                "tags": [
-                    "auth"
-                ],
-                "summary": "google redirect to this route",
-                "responses": {
-                    "307": {
-                        "description": "Temporary Redirect"
                     }
                 }
             }

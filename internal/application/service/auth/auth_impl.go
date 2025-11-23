@@ -257,23 +257,10 @@ func (uc *UseCase) newLogin(
 	)
 	sessionEntity.ID = sessionID
 
-	modelsList, err := uc.repo.GetModels(ctx)
-	if err != nil {
-		return result.Login{}, fmt.Errorf("%s: %w", op, err)
-	}
-
-	allowedModels := make([]*entities.Model, 0, len(modelsList))
-
-	for _, m := range modelsList {
-		if m.MinLevel >= sub.Level {
-			allowedModels = append(allowedModels, m)
-		}
-	}
-
 	user, err := aggregates.NewUser(
 		userEntity,
 		planEntity,
-		allowedModels,
+		nil,
 		[]*entities.Session{sessionEntity},
 	)
 	if err != nil {

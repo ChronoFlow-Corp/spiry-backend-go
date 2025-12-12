@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// TODO: use it
 var emailRegex = regexp.MustCompile(`(?i)^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`)
 
 const (
@@ -69,6 +68,10 @@ func (u *User) Validate() error {
 
 	if u.Email == "" {
 		return domain.NewValidationError(nil, "email", "email is required")
+	}
+
+	if !emailRegex.MatchString(u.Email) {
+		return domain.NewValidationError(nil, "email", "email is invalid")
 	}
 
 	if len(u.Name) > maxLenNames {

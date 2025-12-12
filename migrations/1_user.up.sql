@@ -14,24 +14,24 @@ CREATE TABLE IF NOT EXISTS users
 
 CREATE TABLE IF NOT EXISTS subscriptions
 (
-    id               uuid PRIMARY KEY,
-    name             varchar(64) not null,
-    modalities_quote jsonb,
-    period           varchar(32) not null,
-    price            decimal(10, 2),
-    level            int         not null,
-    created_at       timestamptz default current_timestamp,
-    updated_at       timestamptz default current_timestamp
+    id         uuid PRIMARY KEY,
+    name       varchar(64) not null,
+    quote      jsonb,
+    period     varchar(32) not null,
+    price      decimal(10, 2),
+    level      int         not null,
+    created_at timestamptz default current_timestamp,
+    updated_at timestamptz default current_timestamp
 );
 
 CREATE TABLE IF NOT EXISTS plans
 (
-    id               uuid PRIMARY KEY,
-    modalities_quote jsonb,
-    user_id          uuid references users (id) on delete cascade not null,
-    subscription_id  uuid references subscriptions (id)           not null,
-    created_at       timestamptz default current_timestamp,
-    updated_at       timestamptz default current_timestamp
+    id              uuid PRIMARY KEY,
+    quote           jsonb,
+    user_id         uuid references users (id) on delete cascade,
+    subscription_id uuid references subscriptions (id) not null,
+    created_at      timestamptz default current_timestamp,
+    updated_at      timestamptz default current_timestamp
 );
 
 CREATE TABLE IF NOT EXISTS models
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS sessions
     token      text         not null,
     expires_at timestamptz  not null,
     last_login timestamptz  not null,
-    device     varchar(128) not null,
+    device     varchar(256) not null,
     user_id    uuid references users (id) on delete cascade,
     created_at timestamptz default current_timestamp,
     updated_at timestamptz default current_timestamp
@@ -140,3 +140,11 @@ CREATE TABLE IF NOT EXISTS admins
     created_at timestamptz default current_timestamp,
     updated_at timestamptz default current_timestamp
 );
+
+CREATE TABLE IF NOT EXISTS unregistered_users
+(
+    id         uuid PRIMARY KEY,
+    ip_address varchar(64)  not null,
+    plan_id    uuid         references plans (id) on delete set null,
+    created_at timestamptz default current_timestamp
+)

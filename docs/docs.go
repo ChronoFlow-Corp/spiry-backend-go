@@ -15,6 +15,35 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/auth/connect/google": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "redirect to google oAuth URL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "\"PostmanRuntime/7.48.0\"",
+                        "description": "\u003cdevice-name\u003e",
+                        "name": "User-Agent",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "307": {
+                        "description": "Temporary Redirect",
+                        "headers": {
+                            "Set-Cookie": {
+                                "type": "string",
+                                "description": "Set access token cookie; e.g. access_token=\u003ctoken\u003e; HttpOnly; Path=/; Secure"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/connect/google/callback": {
             "get": {
                 "tags": [
@@ -282,35 +311,6 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {}
-            }
-        },
-        "/api/connect/google": {
-            "get": {
-                "tags": [
-                    "auth"
-                ],
-                "summary": "redirect to google oAuth URL",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "example": "\"PostmanRuntime/7.48.0\"",
-                        "description": "\u003cdevice-name\u003e",
-                        "name": "User-Agent",
-                        "in": "header",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "307": {
-                        "description": "Temporary Redirect",
-                        "headers": {
-                            "Set-Cookie": {
-                                "type": "string",
-                                "description": "Set access token cookie; e.g. access_token=\u003ctoken\u003e; HttpOnly; Path=/; Secure"
-                            }
-                        }
-                    }
-                }
             }
         }
     },

@@ -14,6 +14,7 @@ import (
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/model"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/query"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/service/chatting"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/config"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/interface/api/rest/dto/request"
@@ -34,10 +35,15 @@ type JWTProvider interface {
 type ChattingModule struct {
 	service     chatting.Service
 	JWTProvider JWTProvider
+	frontendUrl string
 }
 
-func NewChattingModule(service chatting.Service, j JWTProvider) *ChattingModule {
-	return &ChattingModule{service: service, JWTProvider: j}
+func NewChattingModule(
+	cfg *config.Config,
+	service chatting.Service,
+	j JWTProvider,
+) *ChattingModule {
+	return &ChattingModule{service: service, JWTProvider: j, frontendUrl: cfg.HTTP.FrontendURL}
 }
 
 func (m *ChattingModule) Register(r chi.Router) {
@@ -82,6 +88,19 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 		ChatID: chatID,
 	})
 	if err != nil {
+		var errNotFound *domain.ErrorNotFound
+		if errors.As(err, &errNotFound) {
+			pkg.RespondError(w, http.StatusNotFound, response.Error{
+				Code: http.StatusNotFound,
+				Message: fmt.Sprintf(
+					"Chat not found with %s: %s",
+					errNotFound.FieldName,
+					errNotFound.FieldValue,
+				),
+			})
+
+			return
+		}
 		pkg.RespondError(w, http.StatusInternalServerError, response.Error{
 			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
@@ -106,6 +125,7 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 				Settings:  c.Command.Settings,
 				Flags:     c.Command.Flags,
 				Status:    &c.Command.Status,
+				Role:      response.UserRole,
 				CreatedAt: c.Command.CreatedAt,
 			})
 
@@ -113,6 +133,7 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 				ID:        c.Result.ID,
 				Text:      c.Result.Text,
 				CreatedAt: c.Result.CreatedAt,
+				Role:      response.AssistantRole,
 			})
 		}
 
@@ -239,6 +260,9 @@ func (m *ChattingModule) DeleteChat(w http.ResponseWriter, r *http.Request) {
 func (m *ChattingModule) Execute(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols: []string{"json"},
+		OriginPatterns: []string{
+			m.frontendUrl,
+		},
 	})
 	if err != nil {
 		slctx.Logger(r.Context()).Error("websocket accept error", slog.Any("error", err))
@@ -258,7 +282,6 @@ func (m *ChattingModule) Execute(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			slctx.Logger(r.Context()).Error("websocket accept error", slog.Any("error", err))
-			return
 		}
 	}
 }
@@ -305,22 +328,64 @@ func (m *ChattingModule) accept(
 		Media:     medias,
 	})
 	if err != nil {
-		// TODO: handle error
+		var raw []byte
+		var errNotFound *domain.ErrorNotFound
+		if errors.Is(err, domain.ZeroAllowedTools) {
+			raw, err = json.Marshal(response.ResponseChunk{
+				Content: "There are no allowed tools",
+				State:   "ERROR",
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		if errors.As(err, &errNotFound) {
+			raw, err = json.Marshal(response.ResponseChunk{
+				Content: fmt.Sprintf(
+					"%s not found with %s",
+					errNotFound.FieldName,
+					errNotFound.FieldValue,
+				),
+				State: "ERROR",
+			})
+		}
+
+		_ = conn.Write(ctx, mstp, raw)
+
 		return err
 	}
 
 	for ch := range event.Stream() {
-		raw, err := json.Marshal(response.ResponseChunk{
-			MessageID: ch.ResultID.String(),
-			Content:   ch.Content,
-			ChatID:    ch.ChatID.String(),
-			State:     ch.Type,
-		})
-		if err != nil {
-			return err
-		}
+		switch ch.Type {
+		case model.ErrorEvent:
+			var raw []byte
+			if errors.Is(ch.Cause, domain.ZeroAllowedTools) {
+				raw, err = json.Marshal(response.ResponseChunk{
+					MessageID: ch.ResultID.String(),
+					Content:   "There are no allowed tools",
+					ChatID:    ch.ChatID.String(),
+					State:     ch.Type,
+				})
+				if err != nil {
+					return err
+				}
+			}
 
-		_ = conn.Write(ctx, mstp, raw)
+			_ = conn.Write(ctx, mstp, raw)
+		default:
+			raw, err := json.Marshal(response.ResponseChunk{
+				MessageID: ch.ResultID.String(),
+				Content:   ch.Content,
+				ChatID:    ch.ChatID.String(),
+				State:     ch.Type,
+			})
+			if err != nil {
+				return err
+			}
+
+			_ = conn.Write(ctx, mstp, raw)
+		}
 	}
 
 	return nil

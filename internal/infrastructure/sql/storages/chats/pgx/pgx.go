@@ -190,6 +190,9 @@ func (p *Pgx) GetByIDWithCommandsResults(
 
 	agg, err := scanToAggregate(row)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%s: %w", op, chats.ErrNotFound)
+		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 

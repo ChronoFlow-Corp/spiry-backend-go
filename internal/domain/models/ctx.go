@@ -18,3 +18,14 @@ func GetUserIDFromCtx(ctx context.Context) (*uuid.UUID, bool) {
 
 	return &id, ok
 }
+
+type UnloggedUserIPctxKey struct{}
+
+func GetUnloggedUserIPFromCtx(ctx context.Context) (*string, bool) {
+	ip, ok := ctx.Value(UnloggedUserIPctxKey{}).(string)
+	if !ok {
+		return nil, false
+	}
+
+	return &ip, ok
+}

@@ -6,10 +6,15 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	UserRole      = "user"
+	AssistantRole = "assistant"
+)
+
 type Chat struct {
 	ID        uuid.UUID `json:"id"`
 	Title     string    `json:"title"`
-	History   []Message `json:"history"`
+	History   []Message `json:"history,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -22,6 +27,7 @@ type Message struct {
 	Status    *string           `json:"status,omitempty"`
 	Tool      *Tool             `json:"tool,omitempty"`
 	Model     *Model            `json:"model,omitempty"`
+	Role      string            `json:"role,omitempty"`
 	CreatedAt time.Time         `json:"created_at"`
 }
 

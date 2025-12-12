@@ -15,11 +15,17 @@ const (
 
 type Modality string
 
+const (
+	TextModality  Modality = "text"
+	ImageModality Modality = "image"
+)
+
 // Tool is pre prompt for llm.
 // Model will choose of subscription level, modalities, priority.
 type Tool struct {
-	ID         uuid.UUID
-	Name       string
+	ID   uuid.UUID
+	Name string
+	// Output modalities
 	Modalities []Modality
 	Settings   map[string]string
 	Prompt     string

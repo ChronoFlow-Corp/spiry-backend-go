@@ -12,6 +12,7 @@ import (
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/plans"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/sessions"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/subscriptions"
+	unloggedusers "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/unlogged_users"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/users"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/google/uuid"
@@ -23,6 +24,7 @@ type Repository struct {
 	user         users.UserStorage
 	model        models.ModelStorage
 	subscription subscriptions.SubscriptionStorage
+	unlogged     unloggedusers.UnloggedUserStorage
 	manager      *manager.Manager
 }
 
@@ -32,6 +34,7 @@ func NewAuthRepository(
 	user users.UserStorage,
 	model models.ModelStorage,
 	manager *manager.Manager,
+	unlogged unloggedusers.UnloggedUserStorage,
 	subscription subscriptions.SubscriptionStorage,
 ) *Repository {
 	return &Repository{
@@ -40,6 +43,7 @@ func NewAuthRepository(
 		user:         user,
 		model:        model,
 		subscription: subscription,
+		unlogged:     unlogged,
 		manager:      manager,
 	}
 }
@@ -200,6 +204,93 @@ func (r *Repository) GetSubscriptionByID(
 	}
 
 	return sub, nil
+}
+
+func (r *Repository) SaveUnlogged(ctx context.Context, u *aggregates.UnloggedUser) error {
+	const op = "sql.repository.auth.SaveUnlogged"
+	err := r.manager.Do(ctx, func(ctx context.Context) error {
+		err := r.plan.Create(ctx, *u.Plan)
+		if err != nil {
+			return err
+		}
+
+		err = r.unlogged.Create(ctx, u.UnloggedUser)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (r *Repository) GetUnloggedByIP(
+	ctx context.Context,
+	ip string,
+) (*aggregates.UnloggedUser, error) {
+	const op = "sql.repository.auth.GetUnloggedByIP"
+
+	uu, err := r.unlogged.GetByIP(ctx, ip)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	p, err := r.plan.GetByID(ctx, uu.PlanID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	ml, err := r.model.GetAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	allowedModels := make([]*entities.Model, 0)
+
+	for _, m := range ml {
+		if p.Level >= m.MinLevel {
+			allowedModels = append(allowedModels, &m)
+		}
+	}
+
+	uuAggregate := &aggregates.UnloggedUser{
+		UnloggedUser: uu,
+		Plan:         p,
+	}
+
+	uuAggregate.Models = allowedModels
+
+	return uuAggregate, nil
+}
+
+func (r *Repository) SavePlan(ctx context.Context, p *entities.Plan) error {
+	const op = "sql.repository.auth.SavePlan"
+	err := r.manager.Do(ctx, func(ctx context.Context) error {
+		_, err := r.plan.GetByID(ctx, p.ID)
+		if err != nil {
+			if errors.Is(err, plans.ErrNotFound) {
+				return domain.NewNotFound(err, "plan not found", "", p.ID.String())
+			}
+
+			return err
+		}
+
+		err = r.plan.Update(ctx, *p)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }
 
 func (r *Repository) aggregateFromUser(

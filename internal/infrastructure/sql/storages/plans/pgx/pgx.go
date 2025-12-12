@@ -35,13 +35,23 @@ func (p *Pgx) Create(ctx context.Context, plan entities.Plan) error {
 
 	conn := p.getter.DefaultTrOrDB(ctx, p.pool)
 
+	var userID *uuid.UUID
+	if plan.UserID != uuid.Nil {
+		userID = &plan.UserID
+	}
+
+	marshaled, err := marshalQuoteToModel(plan.Quote)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
 	query, values, err := sq.
 		Insert(table).
 		Columns(columns...).
 		Values(
 			plan.ID,
-			plan.ModalitiesQuote,
-			plan.UserID,
+			marshaled,
+			userID,
 			plan.SubscriptionID,
 			plan.CreatedAt,
 			plan.UpdatedAt,
@@ -119,9 +129,12 @@ func (p *Pgx) Update(ctx context.Context, plan entities.Plan) error {
 
 	update := sq.Update(table).Where(squirrel.Eq{columns[id]: plan.ID})
 
-	if plan.ModalitiesQuote != planDB.ModalitiesQuote {
-		update = update.Set(columns[modalitiesQuote], plan.ModalitiesQuote)
+	marshaled, err := marshalQuoteToModel(plan.Quote)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
 	}
+
+	update = update.Set(columns[quote], marshaled)
 
 	if plan.SubscriptionID != planDB.SubscriptionID {
 		update = update.Set(columns[subscriptionID], plan.SubscriptionID)
@@ -146,7 +159,7 @@ func scanToEntity(row pgx.Row) (entities.Plan, error) {
 	var p models.Plan
 	err := row.Scan(
 		&p.ID,
-		&p.ModalitiesQuote,
+		&p.Quote,
 		&p.UserID,
 		&p.SubscriptionID,
 		&p.CreatedAt,
@@ -165,17 +178,78 @@ func scanToEntity(row pgx.Row) (entities.Plan, error) {
 		UpdatedAt:      p.UpdatedAt,
 	}
 
-	var mod models.ModalitiesQuote
-	err = json.Unmarshal(p.ModalitiesQuote, &mod)
-	if err != nil {
-		return entities.Plan{}, err
+	var mod models.Quote
+
+	if len(p.Quote) > 0 {
+		err = json.Unmarshal(p.Quote, &mod)
+		if err != nil {
+			return entities.Plan{}, err
+		}
 	}
 
-	plan.ModalitiesQuote = entities.ModalitiesQuote{
-		ChattingQuote:    mod.ChattingQuote,
-		MediaQuote:       mod.MediaQuote,
-		TextContentQuote: mod.TextContentQuote,
+	plan.Quote = entities.Quote{
+		ToolLimits:       make([]entities.ToolLimit, len(mod.ToolLimits)),
+		MediaLimit:       make([]entities.MediaLimit, len(mod.MediaLimit)),
+		FlagLimits:       make([]entities.FlagLimit, len(mod.FlagLimits)),
+		ResetQuotePeriod: entities.Period(mod.ResetQuotePeriod),
+	}
+
+	for i, limit := range mod.ToolLimits {
+		plan.Quote.ToolLimits[i] = entities.ToolLimit{
+			ID:            limit.ID,
+			SettingsLimit: limit.SettingsLimit,
+			Usage:         limit.Usage,
+		}
+	}
+
+	for i, limit := range mod.MediaLimit {
+		plan.Quote.MediaLimit[i] = entities.MediaLimit{
+			Type:     limit.Type,
+			Upload:   limit.Upload,
+			Generate: limit.Generate,
+			Size:     uint64(limit.Size),
+		}
+	}
+
+	for i, limit := range mod.FlagLimits {
+		plan.Quote.FlagLimits[i] = entities.FlagLimit{
+			Name: limit.Name,
+		}
 	}
 
 	return plan, nil
+}
+
+func marshalQuoteToModel(q entities.Quote) ([]byte, error) {
+	mod := models.Quote{
+		ToolLimits:       make([]models.ToolLimit, len(q.ToolLimits)),
+		MediaLimit:       make([]models.MediaLimit, len(q.MediaLimit)),
+		FlagLimits:       make([]models.FlagLimit, len(q.FlagLimits)),
+		ResetQuotePeriod: string(q.ResetQuotePeriod),
+	}
+
+	for i, limit := range q.ToolLimits {
+		mod.ToolLimits[i] = models.ToolLimit{
+			ID:            limit.ID,
+			SettingsLimit: limit.SettingsLimit,
+			Usage:         limit.Usage,
+		}
+	}
+
+	for i, limit := range q.MediaLimit {
+		mod.MediaLimit[i] = models.MediaLimit{
+			Type:     limit.Type,
+			Upload:   limit.Upload,
+			Generate: limit.Generate,
+			Size:     int(limit.Size),
+		}
+	}
+
+	for i, limit := range q.FlagLimits {
+		mod.FlagLimits[i] = models.FlagLimit{
+			Name: limit.Name,
+		}
+	}
+
+	return json.Marshal(mod)
 }

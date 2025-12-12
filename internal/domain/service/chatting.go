@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/pkg/pubSub"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/aggregates"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
 )
@@ -49,12 +52,10 @@ func (c *Chatting) ExecuteStreaming(
 	const op = "domain.service.Chatting.ExecuteStreaming"
 
 	if streaming.Command == nil {
-		// TODO: error type
 		return nil, errors.New("chatting: command is nil")
 	}
 
 	if streaming.Command.Status == "done" {
-		// TODO: error type
 		return nil, errors.New("chatting: command is done")
 	}
 
@@ -64,4 +65,74 @@ func (c *Chatting) ExecuteStreaming(
 	}
 
 	return stream, nil
+}
+
+func (c *Chatting) CheckExecuteAndChangeLimits(
+	cm aggregates.Command,
+	plan *entities.Plan,
+	tool entities.Tool,
+) error {
+	const op = "domain.service.Chatting.CanExecute"
+
+	for i, tl := range plan.Quote.ToolLimits {
+		if tl.ID == tool.ID {
+			for k := range cm.Settings {
+				if !tl.SettingsLimit[k] {
+					return fmt.Errorf(
+						"%s: %w",
+						op,
+						domain.NewForbidden(nil, "tool setting forbidden", k, cm.Settings[k]),
+					)
+				}
+			}
+
+			if tl.Usage == 0 {
+				return fmt.Errorf(
+					"%s: %w",
+					op,
+					domain.NewForbidden(nil, "tool usage quota exceeded", "usage", tool.Name),
+				)
+			}
+
+			plan.Quote.ToolLimits[i].Usage--
+		}
+	}
+
+	mediaCount := make(map[string]int)
+
+	for _, m := range cm.Medias {
+		mediaCount[m.Type]++
+		for i, ml := range plan.Quote.MediaLimit {
+			if m.Type == ml.Type {
+				if ml.Size < m.Size {
+					return errors.New("media size not allowed")
+				}
+
+				if slices.Contains(tool.Modalities, entities.ImageModality) {
+					if ml.Generate == 0 {
+						return fmt.Errorf("%s: %w", op, domain.NewForbidden(
+							nil,
+							"generation quota has been exceeded",
+							"generate",
+							ml.Type,
+						))
+					}
+
+					plan.Quote.MediaLimit[i].Generate--
+				}
+			}
+		}
+	}
+
+	for k, v := range mediaCount {
+		for _, ml := range plan.Quote.MediaLimit {
+			if k == ml.Type {
+				if v > ml.Upload {
+					return errors.New("count media upload not allowed")
+				}
+			}
+		}
+	}
+
+	return nil
 }

@@ -179,7 +179,6 @@ func (uc *UseCase) addLogin(
 
 	device, ok := cm.State["device"]
 	if !ok {
-		// TODO: add domain error
 		return result.Login{}, fmt.Errorf("%s: %w", op, errors.New("device not found"))
 	}
 
@@ -233,7 +232,7 @@ func (uc *UseCase) newLogin(
 		info.RefreshToken,
 	)
 
-	planEntity := entities.NewPlan(sub.ModalitiesQuote, sub.Level, sub.ID, userEntity.ID)
+	planEntity := entities.NewPlan(sub.Quote, sub.Level, sub.ID, userEntity.ID)
 
 	sessionID := uuid.New()
 
@@ -244,7 +243,6 @@ func (uc *UseCase) newLogin(
 
 	device, ok := cm.State["device"]
 	if !ok {
-		// TODO: add domain error
 		return result.Login{}, fmt.Errorf("%s: %w", op, errors.New("device not found"))
 	}
 

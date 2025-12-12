@@ -1,17 +1,23 @@
 package entities
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type UnloggedUser struct {
-	ID uuid.UUID
-	IP string
-
-	PlanID uuid.UUID
+	ID        uuid.UUID
+	IP        string
+	PlanID    uuid.UUID
+	CreatedAt time.Time
 }
 
-func NewUnloggedUser(ip string, quote ModalitiesQuote) *UnloggedUser {
+func NewUnloggedUser(ip string, planID uuid.UUID) *UnloggedUser {
 	return &UnloggedUser{
-		ID: uuid.New(),
-		IP: ip,
+		ID:        uuid.New(),
+		IP:        ip,
+		PlanID:    planID,
+		CreatedAt: time.Now().UTC(),
 	}
 }

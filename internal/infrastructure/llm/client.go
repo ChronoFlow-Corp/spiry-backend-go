@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/pkg/pubSub"
@@ -12,6 +13,7 @@ import (
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/aggregates"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/pkg/slctx"
 	"github.com/revrost/go-openrouter"
 	"github.com/revrost/go-openrouter/jsonschema"
 )
@@ -60,12 +62,14 @@ func (o *OpenRouter) RecognizeTool(
 		return models.RecognizeResult{}, fmt.Errorf("%s: %w", op, err)
 	}
 
+	slctx.Logger(ctx).Debug("Recognize prompt", slog.String("prompt", str.String()))
+
 	model := lightestModel(command.AllowedModels)
 
 	req := openrouter.ChatCompletionRequest{
 		Model: model.Name,
 		Messages: []openrouter.ChatCompletionMessage{
-			openrouter.SystemMessage(str.String()),
+			openrouter.UserMessage(str.String()),
 		},
 		ResponseFormat: &openrouter.ChatCompletionResponseFormat{
 			Type: openrouter.ChatCompletionResponseFormatTypeJSONSchema,
@@ -81,6 +85,8 @@ func (o *OpenRouter) RecognizeTool(
 	if err != nil {
 		return models.RecognizeResult{}, fmt.Errorf("%s: %w", op, err)
 	}
+
+	slctx.Logger(ctx).Debug("Response from recognize tool", slog.Any("response", res))
 
 	for _, ch := range res.Choices {
 		err = json.Unmarshal([]byte(ch.Message.Content.Text), &rec)

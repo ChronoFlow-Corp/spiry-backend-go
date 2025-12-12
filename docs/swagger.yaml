@@ -103,6 +103,26 @@ info:
   title: Spirx API
   version: "1.0"
 paths:
+  /api/auth/connect/google:
+    get:
+      parameters:
+      - description: <device-name>
+        example: '"PostmanRuntime/7.48.0"'
+        in: header
+        name: User-Agent
+        required: true
+        type: string
+      responses:
+        "307":
+          description: Temporary Redirect
+          headers:
+            Set-Cookie:
+              description: Set access token cookie; e.g. access_token=<token>; HttpOnly;
+                Path=/; Secure
+              type: string
+      summary: redirect to google oAuth URL
+      tags:
+      - auth
   /api/auth/connect/google/callback:
     get:
       responses:
@@ -280,24 +300,4 @@ paths:
       summary: Connection to ws
       tags:
       - chatting
-  /api/connect/google:
-    get:
-      parameters:
-      - description: <device-name>
-        example: '"PostmanRuntime/7.48.0"'
-        in: header
-        name: User-Agent
-        required: true
-        type: string
-      responses:
-        "307":
-          description: Temporary Redirect
-          headers:
-            Set-Cookie:
-              description: Set access token cookie; e.g. access_token=<token>; HttpOnly;
-                Path=/; Secure
-              type: string
-      summary: redirect to google oAuth URL
-      tags:
-      - auth
 swagger: "2.0"

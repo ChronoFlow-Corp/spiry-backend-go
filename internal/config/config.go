@@ -10,6 +10,11 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
+const (
+	devEnv  = "development"
+	prodEnv = "production"
+)
+
 // Config struct contains all for start spiry application.
 type Config struct {
 	Env        string     `yaml:"env"      env:"ENV" env-default:"development"`
@@ -65,6 +70,13 @@ func (c *Config) MustLoad() {
 	err := cleanenv.ReadConfig(p, c)
 	if err != nil {
 		panic("failed to read config: " + err.Error())
+	}
+
+	switch c.Env {
+	case devEnv:
+	case prodEnv:
+	default:
+		panic(fmt.Sprintf("Environment variable %s not allowed", c.Env))
 	}
 
 	c.mustJwtLoad()

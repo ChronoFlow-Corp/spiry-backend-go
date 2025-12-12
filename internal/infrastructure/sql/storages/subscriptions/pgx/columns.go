@@ -5,7 +5,7 @@ type columnIndex uint
 const (
 	id columnIndex = iota
 	name
-	modalitiesQuote
+	quote
 	period
 	price
 	level
@@ -16,12 +16,12 @@ const (
 var table = "subscriptions"
 
 var columns = []string{
-	id:              "id",
-	name:            "name",
-	modalitiesQuote: "modalities_quote",
-	period:          "period",
-	price:           "price",
-	level:           "level",
-	createdAt:       "created_at",
-	updatedAt:       "updated_at",
+	id:        "id",
+	name:      "name",
+	quote:     "quote",
+	period:    "period",
+	price:     "price",
+	level:     "level",
+	createdAt: "created_at",
+	updatedAt: "updated_at",
 }

@@ -65,7 +65,7 @@ func (a *AuthModule) Register(r chi.Router) {
 //	@Success	307
 //	@Header		307	{string}	Set-Cookie	"Set refresh token cookie; e.g. refresh_token=<token>; HttpOnly; Path=/api/auth/refresh; Secure"
 //	@Header		307	{string}	Set-Cookie	"Set access token cookie; e.g. access_token=<token>; HttpOnly; Path=/; Secure"
-//	@Router		/api/connect/google [get]
+//	@Router		/api/auth/connect/google [get]
 func (a *AuthModule) Login(w http.ResponseWriter, r *http.Request) {
 	agent := r.Header.Get("User-Agent")
 	if agent == "" {
@@ -107,7 +107,7 @@ func (a *AuthModule) Callback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    res.RefreshToken.Token,
-		Path:     "/api/auth/refresh",
+		Path:     "/",
 		Expires:  res.RefreshToken.ExpireAt,
 		HttpOnly: true,
 		Secure:   true,
@@ -168,7 +168,7 @@ func (a *AuthModule) Refresh(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    res.RefreshToken.Token,
-		Path:     "/api/auth/refresh",
+		Path:     "/",
 		Expires:  res.RefreshToken.ExpireAt,
 		HttpOnly: true,
 		Secure:   true,
@@ -264,13 +264,7 @@ func (a *AuthModule) UserInfo(w http.ResponseWriter, r *http.Request) {
 		Name:      userInfo.Name,
 		Email:     userInfo.Email,
 		AvatarURL: userInfo.AvatarURL,
-		Plan: response.Plan{
-			ID:        userInfo.Plan.ID,
-			Name:      userInfo.Plan.Name,
-			Price:     userInfo.Plan.Price,
-			CreatedAt: userInfo.CreatedAt,
-			UpdatedAt: userInfo.UpdatedAt,
-		},
+		Plan:      userInfo.Plan.Name,
 		Theme:     userInfo.Theme,
 		CreatedAt: userInfo.CreatedAt,
 		UpdatedAt: userInfo.UpdatedAt,

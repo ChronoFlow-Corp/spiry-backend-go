@@ -2,7 +2,10 @@ package domain
 
 import "fmt"
 
-var ErrStreamClosed = fmt.Errorf("stream closed")
+var (
+	ErrStreamClosed  = fmt.Errorf("stream closed")
+	ZeroAllowedTools = fmt.Errorf("zero allowed tools")
+)
 
 type ValidationError struct {
 	Cause     error
@@ -49,6 +52,34 @@ func (e *ErrorNotFound) Unwrap() error {
 
 func NewNotFound(err error, message, rowName, row string) error {
 	return &ErrorNotFound{
+		Cause:      err,
+		Message:    message,
+		FieldName:  rowName,
+		FieldValue: row,
+	}
+}
+
+type ForbiddenError struct {
+	Cause      error
+	Message    string
+	FieldName  string
+	FieldValue string
+}
+
+func (e *ForbiddenError) Error() string {
+	if e.Cause == nil {
+		return e.Message
+	}
+
+	return fmt.Sprintf("%s :%s: forbidden", e.Message, e.Cause)
+}
+
+func (e *ForbiddenError) Unwrap() error {
+	return e.Cause
+}
+
+func NewForbidden(err error, message, rowName, row string) error {
+	return &ForbiddenError{
 		Cause:      err,
 		Message:    message,
 		FieldName:  rowName,

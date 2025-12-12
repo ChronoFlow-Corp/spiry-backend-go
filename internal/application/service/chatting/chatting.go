@@ -2,13 +2,17 @@ package chatting
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/command"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/pkg/event"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/query"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/result"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/service"
+	"github.com/google/uuid"
 )
 
 type Service interface {
@@ -133,7 +137,32 @@ func (c *Chatting) DeleteChat(ctx context.Context, cm command.DeleteChat) error 
 
 func (c *Chatting) ExecuteCommand(ctx context.Context, cm command.Execute) (*event.Manager, error) {
 	const op = "application.service.Chatting.Execute"
-	// TODO: fix op
 
-	return c.execute(ctx, cm)
+	var plan *entities.Plan
+	var userID *uuid.UUID
+
+	userID, ok := models.GetUserIDFromCtx(ctx)
+	if ok {
+		u, err := c.authRepo.GetUserByID(ctx, *userID)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		plan = u.Plan
+	}
+
+	if ip, ok := models.GetUnloggedUserIPFromCtx(ctx); ok {
+		u, err := c.authRepo.GetUnloggedByIP(ctx, *ip)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		plan = u.Plan
+	}
+
+	if plan == nil {
+		return nil, errors.New("unlogged user not found")
+	}
+
+	return c.execute(ctx, cm, plan, userID)
 }

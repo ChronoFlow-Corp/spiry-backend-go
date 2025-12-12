@@ -4,6 +4,14 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	GeneratingEvent = "generating"
+	TitleEvent      = "title"
+	ErrorEvent      = "error"
+	WarningEvent    = "warning"
+	DoneEvent       = "done"
+)
+
 type Event struct {
 	Type     string
 	ChatID   uuid.UUID
@@ -14,7 +22,7 @@ type Event struct {
 
 func NewGeneratingEvent(chatID, resultID uuid.UUID, content string) Event {
 	return Event{
-		Type:     "generating",
+		Type:     GeneratingEvent,
 		ChatID:   chatID,
 		Content:  content,
 		ResultID: resultID,
@@ -23,7 +31,7 @@ func NewGeneratingEvent(chatID, resultID uuid.UUID, content string) Event {
 
 func NewTitleEvent(chatID, resultID uuid.UUID, content string) Event {
 	return Event{
-		Type:     "title",
+		Type:     TitleEvent,
 		ChatID:   chatID,
 		Content:  content,
 		ResultID: resultID,
@@ -32,7 +40,7 @@ func NewTitleEvent(chatID, resultID uuid.UUID, content string) Event {
 
 func NewErrorEvent(chatID, resultID uuid.UUID, cause error) Event {
 	return Event{
-		Type:     "error",
+		Type:     ErrorEvent,
 		ChatID:   chatID,
 		Cause:    cause,
 		ResultID: resultID,
@@ -41,7 +49,7 @@ func NewErrorEvent(chatID, resultID uuid.UUID, cause error) Event {
 
 func NewWarningEvent(chatID, resultID uuid.UUID, content string) Event {
 	return Event{
-		Type:     "warning",
+		Type:     WarningEvent,
 		ChatID:   chatID,
 		Content:  content,
 		ResultID: resultID,
@@ -50,7 +58,7 @@ func NewWarningEvent(chatID, resultID uuid.UUID, content string) Event {
 
 func NewDoneEvent(chatID, resultID uuid.UUID) Event {
 	return Event{
-		Type:     "done",
+		Type:     DoneEvent,
 		Content:  "DONE",
 		ChatID:   chatID,
 		ResultID: resultID,

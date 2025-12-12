@@ -20,20 +20,14 @@ import (
 func (c *Chatting) saveResult(
 	commandAggregate *aggregates.Command,
 	rec models2.RecognizeResult,
-	user *aggregates.User,
+	userID *uuid.UUID,
 	chat *aggregates.Chat,
 	stream *pubSub.PubSub[entities.Chunk],
 	eventer *event.Manager) (err error) {
 	const op = "application.service.Chatting.saveResult"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-
-	var userID *uuid.UUID
-	if user != nil {
-		userID = &user.ID
-	}
 
 	resultID := uuid.New()
 	collector := result_collector.NewCollector(userID, resultID, chat.ID)

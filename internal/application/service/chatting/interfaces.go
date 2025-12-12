@@ -29,4 +29,7 @@ type AuthRepository interface {
 	SaveUser(ctx context.Context, user *aggregates.User) error
 	GetUserByEmail(ctx context.Context, email string) (*aggregates.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (*aggregates.User, error)
+	GetUnloggedByIP(ctx context.Context, ip string) (*aggregates.UnloggedUser, error)
+	SaveUnlogged(ctx context.Context, u *aggregates.UnloggedUser) error
+	SavePlan(ctx context.Context, p *entities.Plan) error
 }

@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/service/chatting"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/aggregates"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
 	models2 "github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
@@ -104,6 +105,9 @@ func (r *Repository) GetChatByID(ctx context.Context, chatID uuid.UUID) (*aggreg
 
 	chat, err := r.chat.GetByIDWithCommandsResults(ctx, chatID)
 	if err != nil {
+		if errors.Is(err, chats.ErrNotFound) {
+			return nil, domain.NewNotFound(err, "", "chatID", chatID.String())
+		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -115,6 +119,10 @@ func (r *Repository) GetChatByUserID(ctx context.Context) ([]*aggregates.Chat, e
 
 	chat, err := r.chat.GetAll(ctx)
 	if err != nil {
+		if errors.Is(err, chats.ErrNotFound) {
+			return nil, domain.NewNotFound(err, "chat not found", "userID", "")
+		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -277,9 +285,20 @@ func (r *Repository) GetAllowedTools(ctx context.Context) ([]*entities.Tool, err
 	p.Level = sub.Level
 
 	for _, m := range t {
-		if m.MinLevel <= p.Level {
-			allowed = append(allowed, m)
+		for _, tl := range p.Quote.ToolLimits {
+			if tl.Usage != 0 && m.MinLevel <= p.Level && tl.ID == m.ID {
+				allowed = append(allowed, m)
+			}
 		}
+	}
+
+	if len(allowed) == 0 {
+		return nil, domain.NewForbidden(
+			domain.ZeroAllowedTools,
+			fmt.Sprintf("%s: zero allowed tools", op),
+			"",
+			"",
+		)
 	}
 
 	return allowed, nil

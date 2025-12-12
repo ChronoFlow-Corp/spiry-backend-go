@@ -42,7 +42,7 @@ func (p *Pgx) Create(ctx context.Context, subscription entities.Subscription) er
 		Values(
 			subscription.ID,
 			subscription.Name,
-			subscription.ModalitiesQuote,
+			subscription.Quote,
 			subscription.Period,
 			subscription.Price,
 			subscription.Level,
@@ -126,12 +126,13 @@ func (p *Pgx) GetAll(ctx context.Context) ([]entities.Subscription, error) {
 
 	return subs, nil
 }
+
 func scanToEntity(row pgx.Row) (entities.Subscription, error) {
 	var sub models.Subscription
 	err := row.Scan(
 		&sub.ID,
 		&sub.Name,
-		&sub.ModalitiesQuote,
+		&sub.Quote,
 		&sub.Period,
 		&sub.Price,
 		&sub.Level,
@@ -142,10 +143,10 @@ func scanToEntity(row pgx.Row) (entities.Subscription, error) {
 		return entities.Subscription{}, err
 	}
 
-	var mod models.ModalitiesQuote
+	var mod models.Quote
 
-	if len(sub.ModalitiesQuote) > 0 {
-		err = json.Unmarshal(sub.ModalitiesQuote, &mod)
+	if len(sub.Quote) > 0 {
+		err = json.Unmarshal(sub.Quote, &mod)
 		if err != nil {
 			return entities.Subscription{}, err
 		}
@@ -164,10 +165,34 @@ func scanToEntity(row pgx.Row) (entities.Subscription, error) {
 		subEntity.Price = sub.Price.String
 	}
 
-	subEntity.ModalitiesQuote = entities.ModalitiesQuote{
-		MediaQuote:       mod.MediaQuote,
-		TextContentQuote: mod.TextContentQuote,
-		ChattingQuote:    mod.ChattingQuote,
+	subEntity.Quote = entities.Quote{
+		ToolLimits:       make([]entities.ToolLimit, len(mod.ToolLimits)),
+		MediaLimit:       make([]entities.MediaLimit, len(mod.MediaLimit)),
+		FlagLimits:       make([]entities.FlagLimit, len(mod.FlagLimits)),
+		ResetQuotePeriod: entities.Period(mod.ResetQuotePeriod),
+	}
+
+	for i, limit := range mod.ToolLimits {
+		subEntity.Quote.ToolLimits[i] = entities.ToolLimit{
+			ID:            limit.ID,
+			SettingsLimit: limit.SettingsLimit,
+			Usage:         limit.Usage,
+		}
+	}
+
+	for i, limit := range mod.MediaLimit {
+		subEntity.Quote.MediaLimit[i] = entities.MediaLimit{
+			Type:     limit.Type,
+			Upload:   limit.Upload,
+			Generate: limit.Generate,
+			Size:     uint64(limit.Size),
+		}
+	}
+
+	for i, limit := range mod.FlagLimits {
+		subEntity.Quote.FlagLimits[i] = entities.FlagLimit{
+			Name: limit.Name,
+		}
 	}
 
 	return subEntity, nil

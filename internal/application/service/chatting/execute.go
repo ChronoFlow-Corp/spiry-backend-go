@@ -14,20 +14,16 @@ import (
 	"github.com/google/uuid"
 )
 
-func (c *Chatting) execute(ctx context.Context, cm command.Execute) (*event.Manager, error) {
+func (c *Chatting) execute(
+	ctx context.Context,
+	cm command.Execute,
+	plan *entities.Plan,
+	userID *uuid.UUID,
+) (*event.Manager, error) {
 	const op = "service.chatting.execute"
 
 	var chat *aggregates.Chat
-	var user *aggregates.User
 	var err error
-
-	userID, ok := models.GetUserIDFromCtx(ctx)
-	if ok {
-		user, err = c.authRepo.GetUserByID(ctx, *userID)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
-		}
-	}
 
 	if cm.ChatID != nil {
 		chat, err = c.repo.GetChatByID(ctx, *cm.ChatID)
@@ -65,6 +61,16 @@ func (c *Chatting) execute(ctx context.Context, cm command.Execute) (*event.Mana
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
+	err = c.chattingDomain.CheckExecuteAndChangeLimits(*aggCommand, plan, *recognized.Tool)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	err = c.authRepo.SavePlan(ctx, plan)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
 	err = c.repo.SaveChat(ctx, chat)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -88,7 +94,7 @@ func (c *Chatting) execute(ctx context.Context, cm command.Execute) (*event.Mana
 	eventer := event.NewManager(ctx, 10)
 
 	go func() {
-		err := c.saveResult(aggCommand, recognized, user, chat, stream, eventer)
+		err := c.saveResult(aggCommand, recognized, userID, chat, stream, eventer)
 		if err != nil {
 			slctx.Logger(ctx).Debug("cannot save result", slog.Any("error", err))
 		}

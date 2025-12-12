@@ -35,6 +35,8 @@ import (
 	subStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/subscriptions/pgx"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/tools"
 	toolsStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/tools/pgx"
+	unloggedusers "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/unlogged_users"
+	unloggedUserStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/unlogged_users/pgx"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/users"
 	userStorage "github.com/ChronoFlow-Corp/spiry-backend-go/internal/infrastructure/sql/storages/users/pgx"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/interface/api/rest"
@@ -103,6 +105,10 @@ func main() {
 				fx.As(new(commandsmedia.CommandMediaStorage)),
 			),
 			fx.Annotate(
+				unloggedUserStorage.NewPgx,
+				fx.As(new(unloggedusers.UnloggedUserStorage)),
+			),
+			fx.Annotate(
 				resultsMediasStorage.NewPgx,
 				fx.As(new(resultmedias.ResultMediaStorage)),
 			),
@@ -148,7 +154,7 @@ func main() {
 			fx.Annotate(
 				rest.NewServeMux,
 				fx.As(new(chi.Router)),
-				fx.ParamTags(`group:"routes"`),
+				fx.ParamTags(``, `group:"routes"`),
 			),
 
 			slog.Default,

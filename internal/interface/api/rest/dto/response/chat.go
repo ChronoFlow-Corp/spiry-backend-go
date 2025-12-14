@@ -21,7 +21,7 @@ type Chat struct {
 
 type Message struct {
 	ID        uuid.UUID         `json:"id"`
-	Text      string            `json:"text"`
+	Text      string            `json:"content"`
 	Settings  map[string]string `json:"settings,omitempty"`
 	Flags     []string          `json:"flags,omitempty"`
 	Status    *string           `json:"status,omitempty"`

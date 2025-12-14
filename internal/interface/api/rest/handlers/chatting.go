@@ -291,6 +291,8 @@ func (m *ChattingModule) Execute(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			slctx.Logger(r.Context()).Error("websocket accept error", slog.Any("error", err))
+
+			return
 		}
 	}
 }

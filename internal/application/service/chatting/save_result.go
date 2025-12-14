@@ -55,9 +55,9 @@ func (c *Chatting) saveResult(
 		collector.AddChunk(chunk)
 
 		if !eventer.Closed() {
-			_ = eventer.Send(
+			_ = eventer.Send( //nolint:errcheck
 				model.NewGeneratingEvent(chat.ID, resultID, chunk.Content),
-			) //nolint:errcheck
+			)
 		}
 	}
 

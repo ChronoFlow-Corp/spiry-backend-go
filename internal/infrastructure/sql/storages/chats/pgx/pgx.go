@@ -24,8 +24,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ chats.ChatStorage = (*Pgx)(nil)
+var (
+	sq                   = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  chats.ChatStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -148,12 +150,13 @@ func (p *Pgx) GetAll(ctx context.Context) ([]*entities.Chat, error) {
 
 	builder := sq.Select(columns...).From(table)
 
-	addUserIDWhere(ctx, builder)
+	addUserIDWhere(ctx, &builder)
 
 	query, args, err := builder.ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
+	fmt.Println(query, args, "ONE!!!!!!!!!!!!!!!1")
 
 	rows, err := conn.Query(ctx, query, args...)
 	if err != nil {

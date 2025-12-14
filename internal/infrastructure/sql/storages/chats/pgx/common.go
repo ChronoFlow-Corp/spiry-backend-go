@@ -12,17 +12,17 @@ func addUserIDWhere(ctx context.Context, builder any) {
 	uID, ok := ctx.Value(domainModels.UserIDCtxKey{}).(uuid.UUID)
 
 	switch b := builder.(type) {
-	case squirrel.DeleteBuilder:
+	case *squirrel.DeleteBuilder:
 		if ok {
-			b.Where(squirrel.Eq{columns[userID]: uID})
+			*b = b.Where(squirrel.Eq{columns[userID]: uID})
 		}
-	case squirrel.UpdateBuilder:
+	case *squirrel.UpdateBuilder:
 		if ok {
-			b.Where(squirrel.Eq{columns[userID]: uID})
+			*b = b.Where(squirrel.Eq{columns[userID]: uID})
 		}
-	case squirrel.SelectBuilder:
+	case *squirrel.SelectBuilder:
 		if ok {
-			b.Where(squirrel.Eq{columns[userID]: uID})
+			*b = b.Where(squirrel.Eq{columns[userID]: uID})
 		}
 	}
 }

@@ -21,7 +21,7 @@ type Plan struct {
 	UpdatedAt time.Time
 }
 
-func NewPlan(quote Quote, level uint, subscriptionID uuid.UUID, userID uuid.UUID) *Plan {
+func NewPlan(quote Quote, level uint, subscriptionID, userID uuid.UUID) *Plan {
 	return &Plan{
 		ID:             uuid.New(),
 		Quote:          quote,

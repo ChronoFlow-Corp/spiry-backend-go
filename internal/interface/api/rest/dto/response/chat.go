@@ -14,7 +14,7 @@ const (
 type Chat struct {
 	ID        uuid.UUID `json:"id"`
 	Title     string    `json:"title"`
-	History   []Message `json:"history,omitempty"`
+	Messages  []Message `json:"messages,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

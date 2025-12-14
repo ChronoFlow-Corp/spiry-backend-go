@@ -120,11 +120,11 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 			Title:     chat.Title,
 			CreatedAt: chat.CreatedAt,
 			UpdatedAt: chat.UpdatedAt,
-			History:   make([]response.Message, 0, len(chat.Couple)*2),
+			Messages:  make([]response.Message, 0, len(chat.Couple)*2),
 		}
 
 		for _, c := range chat.Couple {
-			ch.History = append(ch.History, response.Message{
+			ch.Messages = append(ch.Messages, response.Message{
 				ID:        c.Command.ID,
 				Text:      c.Command.Text,
 				Settings:  c.Command.Settings,
@@ -134,7 +134,7 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 				CreatedAt: c.Command.CreatedAt,
 			})
 
-			ch.History = append(ch.History, response.Message{
+			ch.Messages = append(ch.Messages, response.Message{
 				ID:        c.Result.ID,
 				Text:      c.Result.Text,
 				CreatedAt: c.Result.CreatedAt,

@@ -24,6 +24,7 @@ type OpenRouter struct {
 
 func NewOpenRouter(cfg *config.Config) *OpenRouter {
 	cl := openrouter.NewClient(cfg.LLM.Key)
+
 	return &OpenRouter{
 		cl: cl,
 	}
@@ -31,7 +32,8 @@ func NewOpenRouter(cfg *config.Config) *OpenRouter {
 
 func (o *OpenRouter) RecognizeTool(
 	ctx context.Context,
-	command models.RecognizeCommand) (models.RecognizeResult, error) {
+	command models.RecognizeCommand,
+) (models.RecognizeResult, error) {
 	const op = "infrastructure.llm.RecognizeTool"
 
 	str := strings.Builder{}
@@ -50,6 +52,7 @@ func (o *OpenRouter) RecognizeTool(
 		str.WriteString("t prompt: " + t.Prompt + "\n")
 		mpTools[t.Name] = t
 	}
+
 	type recognize struct {
 		ChosenTool string `json:"chosen_tool"`
 		ChatTitle  string `json:"chat_title"`
@@ -112,7 +115,8 @@ func (o *OpenRouter) RecognizeTool(
 }
 
 func (o *OpenRouter) GenerateStreaming(
-	ctx context.Context, command models.ExecuteStreaming) (*pubSub.PubSub[entities.Chunk], error) {
+	ctx context.Context, command models.ExecuteStreaming,
+) (*pubSub.PubSub[entities.Chunk], error) {
 	const op = "infrastructure.llm.GenerateStreaming"
 
 	req := openrouter.ChatCompletionRequest{
@@ -137,7 +141,7 @@ func (o *OpenRouter) GenerateStreaming(
 				cnt.Multi = append(cnt.Multi, openrouter.ChatMessagePart{
 					Type: openrouter.ChatMessagePartTypeImageURL,
 					ImageURL: &openrouter.ChatMessageImageURL{
-						//TODO: get from url url base64
+						// TODO: get from url url base64
 						URL: m.URL.String(),
 					},
 				})
@@ -146,7 +150,7 @@ func (o *OpenRouter) GenerateStreaming(
 					Type: openrouter.ChatMessagePartTypeFile,
 					File: &openrouter.FileContent{
 						Filename: m.Name,
-						//TODO: get from url url base64
+						// TODO: get from url url base64
 						FileData: m.URL.String(),
 					},
 				})
@@ -157,6 +161,7 @@ func (o *OpenRouter) GenerateStreaming(
 						Data: m.URL.String(),
 					},
 				})
+			default:
 			}
 		}
 	} else {
@@ -214,7 +219,7 @@ func enrichContext(
 					msg.Multi = append(msg.Multi, openrouter.ChatMessagePart{
 						Type: openrouter.ChatMessagePartTypeImageURL,
 						ImageURL: &openrouter.ChatMessageImageURL{
-							//TODO: get from url url base64
+							// TODO: get from url url base64
 							URL: m.URL.String(),
 						},
 					})
@@ -223,7 +228,7 @@ func enrichContext(
 						Type: openrouter.ChatMessagePartTypeFile,
 						File: &openrouter.FileContent{
 							Filename: m.Name,
-							//TODO: get from url url base64
+							// TODO: get from url url base64
 							FileData: m.URL.String(),
 						},
 					})
@@ -253,13 +258,14 @@ func enrichContext(
 					Text: c.Command.Prompt,
 				})
 			}
+
 			for _, m := range c.ResultMedia {
 				switch m.Type {
 				case entities.MediaTypeJPEG, entities.MediaTypeGIF, entities.MediaTypePNG:
 					msg.Multi = append(msg.Multi, openrouter.ChatMessagePart{
 						Type: openrouter.ChatMessagePartTypeImageURL,
 						ImageURL: &openrouter.ChatMessageImageURL{
-							//TODO: get from url url base64
+							// TODO: get from url url base64
 							URL: m.URL.String(),
 						},
 					})
@@ -268,7 +274,7 @@ func enrichContext(
 						Type: openrouter.ChatMessagePartTypeFile,
 						File: &openrouter.FileContent{
 							Filename: m.Name,
-							//TODO: get from url url base64
+							// TODO: get from url url base64
 							FileData: m.URL.String(),
 						},
 					})
@@ -279,6 +285,8 @@ func enrichContext(
 							Data: m.URL.String(),
 						},
 					})
+				default:
+
 				}
 			}
 		} else {

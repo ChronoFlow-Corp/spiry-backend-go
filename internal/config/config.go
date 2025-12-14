@@ -47,7 +47,7 @@ type http struct {
 	Timeout     time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"        yaml:"timeout"`
 	CertFile    string        `env:"HTTPS_CERT_FILE"                         yaml:"certFile"`
 	KeyFile     string        `env:"HTTPS_KEY_FILE"                          yaml:"keyFile"`
-	FrontendURL string        `env:"FRONTEND_URL"                            yaml:"frontendURL" env-required:"true"`
+	FrontendUrl string        `env:"FRONTEND_URL"                            yaml:"frontendURL" env-required:"true"`
 }
 
 type googleAuth struct {
@@ -131,6 +131,7 @@ func (c *Config) mustSslLoad() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to read ssl cert file: %s: %s", c.HTTP.CertFile, err))
 	}
+
 	c.HTTP.CertFile = string(certBytes)
 
 	keyFd, err := os.Open(c.HTTP.KeyFile)
@@ -143,5 +144,6 @@ func (c *Config) mustSslLoad() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to read ssl key file: %s: %s", c.HTTP.KeyFile, err))
 	}
+
 	c.HTTP.KeyFile = string(keyBytes)
 }

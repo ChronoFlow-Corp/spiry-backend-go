@@ -19,6 +19,10 @@ const (
 	StatusError      = "error"
 )
 
+const (
+	FlagWebSearch = "web_search"
+)
+
 // Command is entity of command to llm.
 type Command struct {
 	ID       uuid.UUID
@@ -85,6 +89,14 @@ func (c *Command) Validate() error {
 	case StatusError:
 	default:
 		return domain.NewValidationError(nil, "status", "status is invalid")
+	}
+
+	for _, flag := range c.Flags {
+		switch flag {
+		case FlagWebSearch:
+		default:
+			return domain.NewValidationError(nil, "flags", "flag is invalid")
+		}
 	}
 
 	if c.CreatedAt.After(c.UpdatedAt) {

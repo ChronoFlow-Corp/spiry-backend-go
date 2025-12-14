@@ -28,7 +28,7 @@ type AuthModule struct {
 }
 
 func NewAuthModule(cfg *config.Config, service auth.Service, j JWTProvider) *AuthModule {
-	u, err := url.Parse(cfg.HTTP.FrontendURL)
+	u, err := url.Parse(fmt.Sprintf("http://"))
 	if err != nil {
 		panic("invalid frontend URL " + err.Error())
 	}

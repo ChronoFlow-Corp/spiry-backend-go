@@ -121,6 +121,7 @@ func (o *OpenRouter) GenerateStreaming(
 	cnt := openrouter.Content{}
 
 	enrichContext(&req, command.Context)
+	enrichFlags(&req, command.Command.Flags)
 
 	if len(command.Command.Medias) != 0 {
 		if command.Command.Prompt != "" {
@@ -291,4 +292,15 @@ func enrichContext(
 	}
 
 	req.Messages = append(req.Messages, msgs...)
+}
+
+func enrichFlags(req *openrouter.ChatCompletionRequest, flags []string) {
+	for _, flag := range flags {
+		switch flag {
+		case entities.FlagWebSearch:
+			req.Plugins = append(req.Plugins, openrouter.ChatCompletionPlugin{
+				ID: openrouter.PluginIDWeb,
+			})
+		}
+	}
 }

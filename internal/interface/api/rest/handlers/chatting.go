@@ -35,7 +35,7 @@ type JWTProvider interface {
 type ChattingModule struct {
 	service     chatting.Service
 	JWTProvider JWTProvider
-	frontendUrl string
+	frontendUrl *url.URL
 }
 
 func NewChattingModule(
@@ -43,7 +43,12 @@ func NewChattingModule(
 	service chatting.Service,
 	j JWTProvider,
 ) *ChattingModule {
-	return &ChattingModule{service: service, JWTProvider: j, frontendUrl: cfg.HTTP.FrontendURL}
+	u, err := url.Parse(cfg.HTTP.FrontendUrl)
+	if err != nil {
+		panic("invalid frontend URL " + err.Error())
+	}
+
+	return &ChattingModule{service: service, JWTProvider: j, frontendUrl: u}
 }
 
 func (m *ChattingModule) Register(r chi.Router) {
@@ -261,7 +266,7 @@ func (m *ChattingModule) Execute(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols: []string{"json"},
 		OriginPatterns: []string{
-			m.frontendUrl,
+			fmt.Sprintf("%s", m.frontendUrl.Host),
 		},
 	})
 	if err != nil {
@@ -281,6 +286,10 @@ func (m *ChattingModule) Execute(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err != nil {
+			if websocket.CloseStatus(err) == websocket.StatusGoingAway {
+				slctx.Logger(r.Context()).Debug("websocket connection closed")
+				return
+			}
 			slctx.Logger(r.Context()).Error("websocket accept error", slog.Any("error", err))
 		}
 	}
@@ -311,7 +320,7 @@ func (m *ChattingModule) accept(
 	for i, m := range req.Media {
 		u, err := url.Parse(m)
 		if err != nil {
-			//TODO: respond error
+			// TODO: respond error
 			return err
 		}
 

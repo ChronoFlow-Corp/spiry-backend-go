@@ -134,5 +134,17 @@ func (c *Chatting) CheckExecuteAndChangeLimits(
 		}
 	}
 
+	for i, v := range plan.Quote.FlagLimits {
+		for _, f := range cm.Flags {
+			if v.Name == f {
+				if v.Usage == 0 {
+					return domain.NewForbidden(nil, op, "usage", v.Name)
+				}
+
+				plan.Quote.FlagLimits[i].Usage--
+			}
+		}
+	}
+
 	return nil
 }

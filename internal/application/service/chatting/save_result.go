@@ -23,7 +23,8 @@ func (c *Chatting) saveResult(
 	userID *uuid.UUID,
 	chat *aggregates.Chat,
 	stream *pubSub.PubSub[entities.Chunk],
-	eventer *event.Manager) (err error) {
+	eventer *event.Manager,
+) (err error) {
 	const op = "application.service.Chatting.saveResult"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -36,7 +37,7 @@ func (c *Chatting) saveResult(
 	defer eventer.Close()
 	defer func() {
 		if err != nil {
-			_ = eventer.Send(model.NewErrorEvent(chat.ID, resultID, err))
+			_ = eventer.Send(model.NewErrorEvent(chat.ID, resultID, err)) //nolint:errcheck
 		}
 	}()
 
@@ -54,7 +55,9 @@ func (c *Chatting) saveResult(
 		collector.AddChunk(chunk)
 
 		if !eventer.Closed() {
-			_ = eventer.Send(model.NewGeneratingEvent(chat.ID, resultID, chunk.Content))
+			_ = eventer.Send(
+				model.NewGeneratingEvent(chat.ID, resultID, chunk.Content),
+			) //nolint:errcheck
 		}
 	}
 
@@ -70,14 +73,11 @@ func (c *Chatting) saveResult(
 		}
 
 		if !eventer.Closed() {
-			_ = eventer.Send(model.NewTitleEvent(chat.ID, resultID, rec.Title))
+			_ = eventer.Send(model.NewTitleEvent(chat.ID, resultID, rec.Title)) //nolint:errcheck
 		}
 	}
 
 	openRouterID, fullAnswer := collector.Finalize()
-	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
 
 	resEntity := entities.NewResult(
 		fullAnswer,
@@ -107,7 +107,7 @@ func (c *Chatting) saveResult(
 	}
 
 	if !eventer.Closed() {
-		_ = eventer.Send(model.NewDoneEvent(chat.ID, resultID))
+		_ = eventer.Send(model.NewDoneEvent(chat.ID, resultID)) //nolint:errcheck
 	}
 
 	return nil

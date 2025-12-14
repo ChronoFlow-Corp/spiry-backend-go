@@ -27,5 +27,7 @@ type MediaLimit struct {
 }
 
 type FlagLimit struct {
-	Name string
+	Name  string
+	Usage int
+	Reset Period
 }

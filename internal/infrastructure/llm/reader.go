@@ -3,6 +3,7 @@ package llm
 import (
 	"errors"
 	"io"
+	"os"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
@@ -21,6 +22,12 @@ func writer(input chan<- entities.Chunk, reader *openrouter.ChatCompletionStream
 	defer close(input)
 
 	chunk := entities.Chunk{}
+
+	fd, err := os.Create("tmp.json")
+	if err != nil {
+		panic(err)
+	}
+	defer fd.Close()
 
 	for {
 		ch, err := reader.Recv()

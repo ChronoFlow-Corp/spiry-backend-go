@@ -136,12 +136,16 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 				Status:    &c.Command.Status,
 				Role:      response.UserRole,
 				CreatedAt: c.Command.CreatedAt,
-			}, response.Message{
-				ID:        c.Result.ID,
-				Text:      c.Result.Text,
-				CreatedAt: c.Result.CreatedAt,
-				Role:      response.AssistantRole,
 			})
+
+			if c.Result.ID != uuid.Nil {
+				ch.Messages = append(ch.Messages, response.Message{
+					ID:        c.Result.ID,
+					Text:      c.Result.Text,
+					Role:      response.AssistantRole,
+					CreatedAt: c.Result.CreatedAt,
+				})
+			}
 		}
 
 		chats = append(chats, ch)

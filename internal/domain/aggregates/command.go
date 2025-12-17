@@ -74,3 +74,16 @@ func (c *Command) SetModel(model *entities.Model) error {
 
 	return nil
 }
+
+func (c *Command) SetStatus(status string) error {
+	const op = "aggregates.Command.SetStatus"
+
+	c.Status = status
+
+	err := c.Command.Validate()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}

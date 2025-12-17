@@ -70,11 +70,6 @@ func (c *Chatting) execute(
 		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	err = c.authRepo.SavePlan(ctx, plan)
-	if err != nil {
-		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
-	}
-
 	err = c.repo.SaveChat(ctx, chat)
 	if err != nil {
 		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
@@ -91,6 +86,21 @@ func (c *Chatting) execute(
 		Tool:    recognized.Tool,
 		Context: chat.Couples,
 	})
+	if err != nil {
+		setStatusErr := aggCommand.SetStatus(entities.StatusError)
+		if setStatusErr != nil {
+			return result.Execute{}, fmt.Errorf("%s: %w: %w", op, setStatusErr, err)
+		}
+
+		saveErr := c.repo.SaveCommand(ctx, aggCommand)
+		if saveErr != nil {
+			return result.Execute{}, fmt.Errorf("%s: %w: %w", op, saveErr, err)
+		}
+
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	err = c.authRepo.SavePlan(ctx, plan)
 	if err != nil {
 		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}

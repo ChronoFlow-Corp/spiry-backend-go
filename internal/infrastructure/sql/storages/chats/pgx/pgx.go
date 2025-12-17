@@ -200,7 +200,7 @@ func (p *Pgx) GetByIDWithCommandsResults(
 		)
 	}
 
-	row := conn.QueryRow(ctx, chatWithMediasQuery1, chatID, uID)
+	row := conn.QueryRow(ctx, chatWithMediasQuery, chatID, uID)
 
 	agg, err := scanToAggregate(row)
 	if err != nil {

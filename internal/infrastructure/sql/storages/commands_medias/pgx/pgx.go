@@ -20,8 +20,12 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ commandsmedia.CommandMediaStorage = (*Pgx)(nil)
+var (
+	sq = squirrel.StatementBuilder.PlaceholderFormat(
+		squirrel.Dollar,
+	)
+	_ commandsmedia.CommandMediaStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -92,15 +96,19 @@ func (p *Pgx) Update(ctx context.Context, m entities.CommandMedia) error {
 	if mDB.Name != m.Name {
 		update.Set(columns[name], m.Name)
 	}
+
 	if mDB.Type != m.Type {
 		update.Set(columns[mediaType], m.Type)
 	}
+
 	if mDB.URL != m.URL {
 		update.Set(columns[indexUrl], m.URL)
 	}
+
 	if mDB.Size != m.Size {
 		update.Set(columns[size], m.Size)
 	}
+
 	if mDB.CommandID != m.CommandID {
 		update.Set(columns[commandID], m.CommandID)
 	}
@@ -144,6 +152,7 @@ func (p *Pgx) Delete(ctx context.Context, mediaID uuid.UUID) error {
 
 func scanToEntity(row pgx.Row) (entities.CommandMedia, error) {
 	var cmm models.CommandMedia
+
 	err := row.Scan(
 		&cmm.ID,
 		&cmm.Name,
@@ -169,7 +178,7 @@ func scanToEntity(row pgx.Row) (entities.CommandMedia, error) {
 		Name:      cmm.Name,
 		Type:      cmm.Type,
 		URL:       *u,
-		Size:      uint64(cmm.Size),
+		Size:      cmm.Size,
 		CommandID: cmm.CommandID,
 		UserID:    cmm.UserID,
 		CreatedAt: cmm.CreatedAt,

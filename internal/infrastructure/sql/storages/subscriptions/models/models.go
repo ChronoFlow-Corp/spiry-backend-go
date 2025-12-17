@@ -13,7 +13,7 @@ type Subscription struct {
 	Quote     []byte         `db:"quote"`
 	Period    string         `db:"period"`
 	Price     sql.NullString `db:"price"`
-	Level     int            `db:"level"`
+	Level     uint           `db:"level"`
 	CreatedAt time.Time      `db:"created_at"`
 	UpdatedAt time.Time      `db:"updated_at"`
 }
@@ -35,7 +35,7 @@ type MediaLimit struct {
 	Type     string `json:"type,omitempty"`
 	Upload   int    `json:"upload,omitempty"`
 	Generate int    `json:"generate,omitempty"`
-	Size     int    `json:"size,omitempty"`
+	Size     uint64 `json:"size,omitempty"`
 }
 
 type FlagLimit struct {

@@ -34,7 +34,7 @@ type MediaLimit struct {
 	Type     string `json:"type"`
 	Upload   int    `json:"upload"`
 	Generate int    `json:"generate"`
-	Size     int    `json:"size"`
+	Size     uint64 `json:"size"`
 }
 
 type FlagLimit struct {

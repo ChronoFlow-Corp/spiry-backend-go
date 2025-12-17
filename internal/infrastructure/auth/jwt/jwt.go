@@ -24,28 +24,31 @@ type Token struct {
 }
 
 type AccessToken struct {
-	Raw    string `json:"rawToken"`
+	Raw    string `json:"raw_token"`
 	Claims accessClaims
 }
 
 type RefreshToken struct {
-	Raw    string `json:"rawToken"`
+	Raw    string `json:"raw_token"`
 	Claims refreshClaims
 }
 
 type refreshClaims struct {
-	SessionID string `json:"sessionID"`
 	jwt.RegisteredClaims
+
+	SessionID string `json:"session_id"`
 }
 
 type accessClaims struct {
-	SessionID string `json:"sessionID"`
 	jwt.RegisteredClaims
+
+	SessionID string `json:"session_id"`
 }
 
 // New creates JWT client.
 func New(accessSecretPrivate, accessSecretPublic, refreshSecret []byte,
-	accessExpires, refreshExpires time.Duration) JWT {
+	accessExpires, refreshExpires time.Duration,
+) JWT {
 	return JWT{
 		accessSecretPrivate: accessSecretPrivate,
 		accessSecretPublic:  accessSecretPublic,
@@ -66,15 +69,17 @@ func NewFx(cfg *config.Config) JWT {
 }
 
 // NewPair generate new pair jwt tokens.
-func (j JWT) GeneratePair(userID, sessionID uuid.UUID) (model.Token, model.Token, error) {
+func (j JWT) GeneratePair(
+	userID, sessionID uuid.UUID,
+) (access model.Token, refresh model.Token, err error) {
 	const op = "pkg.jwt.NewPair"
 
-	access, err := j.newAccess(userID, sessionID)
+	access, err = j.newAccess(userID, sessionID)
 	if err != nil {
 		return model.Token{}, model.Token{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	refresh, err := j.newRefresh(userID, sessionID)
+	refresh, err = j.newRefresh(userID, sessionID)
 	if err != nil {
 		return model.Token{}, model.Token{}, fmt.Errorf("%s: %w", op, err)
 	}
@@ -83,23 +88,32 @@ func (j JWT) GeneratePair(userID, sessionID uuid.UUID) (model.Token, model.Token
 }
 
 // ParseAccess parse raw token and return claims.
-func (j JWT) ParseAccess(raw string, f interface{}) (model.ParsedToken, error) {
-	var key interface{}
+func (j JWT) ParseAccess(raw string, f any) (model.ParsedToken, error) {
+	var key any
 	switch parseFunc := f.(type) {
 	case func(key []byte) (*rsa.PrivateKey, error):
-		key, _ = parseFunc(j.accessSecretPrivate)
+		var err error
+
+		key, err = parseFunc(j.accessSecretPrivate)
+		if err != nil {
+			return model.ParsedToken{}, err
+		}
 	case func(key []byte) (*rsa.PublicKey, error):
-		key, _ = parseFunc(j.accessSecretPublic)
+		var err error
+
+		key, err = parseFunc(j.accessSecretPublic)
+		if err != nil {
+			return model.ParsedToken{}, err
+		}
 	default:
 		return model.ParsedToken{}, ErrInvalidParseFunc
 	}
 
 	var cl accessClaims
 
-	_, err := jwt.ParseWithClaims(raw, &cl, func(_ *jwt.Token) (interface{}, error) {
+	_, err := jwt.ParseWithClaims(raw, &cl, func(_ *jwt.Token) (any, error) {
 		return key, nil
 	})
-
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return model.ParsedToken{}, fmt.Errorf("%w: %w", ErrExpired, err)
@@ -125,10 +139,9 @@ func (j JWT) ParseAccess(raw string, f interface{}) (model.ParsedToken, error) {
 func (j JWT) ParseRefresh(raw string) (model.ParsedToken, error) {
 	var cl refreshClaims
 
-	_, err := jwt.ParseWithClaims(raw, &cl, func(_ *jwt.Token) (interface{}, error) {
+	_, err := jwt.ParseWithClaims(raw, &cl, func(_ *jwt.Token) (any, error) {
 		return j.refreshSecret, nil
 	})
-
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return model.ParsedToken{}, fmt.Errorf("%w: %w", ErrExpired, err)

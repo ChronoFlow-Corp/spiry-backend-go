@@ -46,7 +46,6 @@ func NewGoogleOauthFx(cfg *config.Config) *GoogleOauth {
 }
 
 func (g *GoogleOauth) GetAuthCodeURI(device string) string {
-	const op = "infrastructure.auth.connect.google.GetAuthCodeURI"
 	stateDevice := "device" + "=" + device
 
 	authURL := g.config.AuthCodeURL(

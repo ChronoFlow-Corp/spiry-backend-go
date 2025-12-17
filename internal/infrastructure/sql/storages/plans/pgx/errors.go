@@ -20,8 +20,7 @@ func handlePgxError(op string, err error) error {
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case errCodeUniqueViolation:
+		if pgErr.Code == errCodeUniqueViolation {
 			return fmt.Errorf("%s: %w: %s", op, plans.ErrAlreadyExists, pgErr.Message)
 		}
 

@@ -19,8 +19,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ sessions.SessionStorage = (*Pgx)(nil)
+var (
+	sq                         = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  sessions.SessionStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -72,12 +74,15 @@ func (p *Pgx) Update(ctx context.Context, session entities.Session) error {
 	if session.Token != s.Token {
 		update = update.Set(columns[token], session.Token)
 	}
+
 	if session.ExpiresAt != s.ExpiresAt {
 		update = update.Set(columns[expiresAt], session.ExpiresAt)
 	}
+
 	if session.LastLogin != s.LastLogin {
 		update = update.Set(columns[lastLogin], session.LastLogin)
 	}
+
 	if session.Device != s.Device {
 		update = update.Set(columns[device], session.Device)
 	}
@@ -119,6 +124,7 @@ func (p *Pgx) GetByID(ctx context.Context, i uuid.UUID) (*entities.Session, erro
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w: %w", op, sessions.ErrNotFound, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -147,6 +153,7 @@ func (p *Pgx) GetByToken(ctx context.Context, t string) (*entities.Session, erro
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w: %w", op, sessions.ErrNotFound, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -173,17 +180,21 @@ func (p *Pgx) GetByUserID(ctx context.Context, u uuid.UUID) ([]*entities.Session
 	defer rows.Close()
 
 	s := make([]*entities.Session, 0)
+
 	for rows.Next() {
 		var session entities.Session
+
 		err := scanToEntity(rows, &session)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
+
 		s = append(s, &session)
 	}
 
 	return s, nil
 }
+
 func scanToEntity(row pgx.Row, session *entities.Session) error {
 	err := row.Scan(
 		&session.ID,

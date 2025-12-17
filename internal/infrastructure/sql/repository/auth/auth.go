@@ -50,6 +50,7 @@ func NewAuthRepository(
 
 func (r *Repository) SaveUser(ctx context.Context, userAggregate *aggregates.User) error {
 	const op = "sql.repository.auth.SaveUser"
+
 	err := r.manager.Do(ctx, func(ctx context.Context) error {
 		_, err := r.user.GetByEmail(ctx, userAggregate.Email)
 		if err != nil {
@@ -91,6 +92,7 @@ func (r *Repository) SaveUser(ctx context.Context, userAggregate *aggregates.Use
 		}
 
 		mpSessions := make(map[uuid.UUID]*entities.Session)
+
 		for _, ss := range s {
 			mpSessions[ss.ID] = ss
 		}
@@ -126,6 +128,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*aggrega
 		if errors.Is(err, users.ErrNotFound) {
 			return nil, domain.NewNotFound(err, "user not found", "email", email)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -161,7 +164,7 @@ func (r *Repository) GetBaseSubscription(ctx context.Context) (*entities.Subscri
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	//TODO: change to proper base subscription selection
+	// TODO: change to proper base subscription selection
 	return &subs[0], nil
 }
 
@@ -173,7 +176,7 @@ func (r *Repository) GetModels(ctx context.Context) ([]*entities.Model, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	m := make([]*entities.Model, len(modelsList))
+	m := make([]*entities.Model, 0, len(modelsList))
 	for _, model := range modelsList {
 		m = append(m, &model)
 	}
@@ -208,6 +211,7 @@ func (r *Repository) GetSubscriptionByID(
 
 func (r *Repository) SaveUnlogged(ctx context.Context, u *aggregates.UnloggedUser) error {
 	const op = "sql.repository.auth.SaveUnlogged"
+
 	err := r.manager.Do(ctx, func(ctx context.Context) error {
 		err := r.plan.Create(ctx, *u.Plan)
 		if err != nil {
@@ -269,6 +273,7 @@ func (r *Repository) GetUnloggedByIP(
 
 func (r *Repository) SavePlan(ctx context.Context, p *entities.Plan) error {
 	const op = "sql.repository.auth.SavePlan"
+
 	err := r.manager.Do(ctx, func(ctx context.Context) error {
 		_, err := r.plan.GetByID(ctx, p.ID)
 		if err != nil {

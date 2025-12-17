@@ -29,7 +29,8 @@ func NewPool(cfg *config.Config) *pgxpool.Pool {
 		panic("failed to connect to database: " + dsn)
 	}
 
-	if err := pool.Ping(context.Background()); err != nil {
+	err = pool.Ping(context.Background())
+	if err != nil {
 		panic(fmt.Sprintf("failed to ping database: %s; err: %v", dsn, err))
 	}
 
@@ -57,7 +58,7 @@ func newPoolWithTracing(ctx context.Context, dsn string) (*pgxpool.Pool, error) 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	cfg.ConnConfig.Tracer = &tracelog.TraceLog{
 		Logger: tracelog.LoggerFunc(func(
-			ctx context.Context,
+			_ context.Context,
 			level tracelog.LogLevel,
 			msg string,
 			data map[string]any,
@@ -71,5 +72,6 @@ func newPoolWithTracing(ctx context.Context, dsn string) (*pgxpool.Pool, error) 
 	if err != nil {
 		return nil, err
 	}
+
 	return pool, nil
 }

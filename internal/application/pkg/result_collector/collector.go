@@ -55,11 +55,13 @@ func (c *Collector) AddChunk(chunk entities.Chunk) {
 					),
 				)
 			}
+		default:
+			continue
 		}
 	}
 }
 
-func (c *Collector) Finalize() (string, string) {
+func (c *Collector) Finalize() (openRouterID string, answer string) {
 	return c.openRouterID, c.buf.String()
 }
 
@@ -69,7 +71,6 @@ func computeSize(s string) int64 {
 
 	if n >= 1 && s[n-1] == '=' {
 		size--
-
 	}
 
 	if n >= 2 && s[n-2] == '=' {

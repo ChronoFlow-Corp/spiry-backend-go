@@ -50,7 +50,8 @@ func NewCommand(
 	modelID *uuid.UUID,
 	chatID uuid.UUID,
 	toolID *uuid.UUID,
-	userID *uuid.UUID) *Command {
+	userID *uuid.UUID,
+) *Command {
 	return &Command{
 		ID:        uuid.New(),
 		Prompt:    prompt,
@@ -83,11 +84,7 @@ func (c *Command) Validate() error {
 		return domain.NewValidationError(nil, "chat_id", "chat_id is required")
 	}
 
-	switch c.Status {
-	case StatusInProgress:
-	case StatusDone:
-	case StatusError:
-	default:
+	if c.Status != StatusDone && c.Status != StatusError && c.Status != StatusInProgress {
 		return domain.NewValidationError(nil, "status", "status is invalid")
 	}
 

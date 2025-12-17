@@ -1,7 +1,6 @@
 package fs
 
-type Storage struct {
-}
+type Storage struct{}
 
 func (s *Storage) Store() error {
 	return nil

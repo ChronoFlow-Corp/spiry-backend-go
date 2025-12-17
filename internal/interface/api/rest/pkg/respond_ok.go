@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func RespondOK(w http.ResponseWriter, data interface{}) {
+func RespondOK(w http.ResponseWriter, data any) {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -15,6 +15,7 @@ func RespondOK(w http.ResponseWriter, data interface{}) {
 
 	if data == nil {
 		w.WriteHeader(http.StatusOK)
+
 		return
 	}
 

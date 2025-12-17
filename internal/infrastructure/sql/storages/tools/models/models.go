@@ -12,7 +12,7 @@ type Tool struct {
 	Modalities []string          `db:"modalities"`
 	Settings   map[string]string `db:"settings"`
 	Prompt     string            `db:"prompt"`
-	MinLevel   int               `db:"min_level"`
+	MinLevel   uint              `db:"min_level"`
 	CreatedAt  time.Time         `db:"created_at"`
 	UpdatedAt  time.Time         `db:"updated_at"`
 }

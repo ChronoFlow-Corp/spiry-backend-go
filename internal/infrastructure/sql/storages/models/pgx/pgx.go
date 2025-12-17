@@ -19,8 +19,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ models.ModelStorage = (*Pgx)(nil)
+var (
+	sq                     = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  models.ModelStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -76,6 +78,7 @@ func (p *Pgx) GetByName(ctx context.Context, n string) (*entities.Model, error) 
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w: %w", op, models.ErrNotFound, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -96,13 +99,16 @@ func (p *Pgx) GetAll(ctx context.Context) ([]entities.Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
+	defer rows.Close()
 
 	m := make([]entities.Model, 0)
+
 	for rows.Next() {
 		model, err := scanToEntity(rows)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
+
 		m = append(m, model)
 	}
 
@@ -111,6 +117,7 @@ func (p *Pgx) GetAll(ctx context.Context) ([]entities.Model, error) {
 
 func scanToEntity(row pgx.Row) (entities.Model, error) {
 	var model models2.Model
+
 	err := row.Scan(
 		&model.ID,
 		&model.Name,

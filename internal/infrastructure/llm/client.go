@@ -10,6 +10,7 @@ import (
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/pkg/pubSub"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/config"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/aggregates"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
@@ -141,7 +142,7 @@ func (o *OpenRouter) GenerateStreaming(
 				cnt.Multi = append(cnt.Multi, openrouter.ChatMessagePart{
 					Type: openrouter.ChatMessagePartTypeImageURL,
 					ImageURL: &openrouter.ChatMessageImageURL{
-						// TODO: get from url url base64
+						// TODO: get from url base64
 						URL: m.URL.String(),
 					},
 				})
@@ -150,7 +151,7 @@ func (o *OpenRouter) GenerateStreaming(
 					Type: openrouter.ChatMessagePartTypeFile,
 					File: &openrouter.FileContent{
 						Filename: m.Name,
-						// TODO: get from url url base64
+						// TODO: get from url base64
 						FileData: m.URL.String(),
 					},
 				})
@@ -177,6 +178,11 @@ func (o *OpenRouter) GenerateStreaming(
 
 	stream, err := o.cl.CreateChatCompletionStream(ctx, req)
 	if err != nil {
+		var reqErr *openrouter.RequestError
+		if errors.As(err, &reqErr) {
+			return nil, fmt.Errorf("%s: %w: %w", op, domain.ErrThirdPartyService, err)
+		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -206,6 +212,7 @@ func enrichContext(
 	msgs := make([]openrouter.ChatCompletionMessage, 0, len(context))
 	for _, c := range context {
 		msg := openrouter.Content{}
+
 		if len(c.CommandMedia) != 0 {
 			if c.Command.Prompt != "" {
 				msg.Multi = append(msg.Multi, openrouter.ChatMessagePart{
@@ -213,13 +220,14 @@ func enrichContext(
 					Text: c.Command.Prompt,
 				})
 			}
+
 			for _, m := range c.CommandMedia {
 				switch m.Type {
 				case entities.MediaTypeJPEG, entities.MediaTypeGIF, entities.MediaTypePNG:
 					msg.Multi = append(msg.Multi, openrouter.ChatMessagePart{
 						Type: openrouter.ChatMessagePartTypeImageURL,
 						ImageURL: &openrouter.ChatMessageImageURL{
-							// TODO: get from url url base64
+							// TODO: get from url base64
 							URL: m.URL.String(),
 						},
 					})
@@ -228,7 +236,7 @@ func enrichContext(
 						Type: openrouter.ChatMessagePartTypeFile,
 						File: &openrouter.FileContent{
 							Filename: m.Name,
-							// TODO: get from url url base64
+							// TODO: get from url base64
 							FileData: m.URL.String(),
 						},
 					})
@@ -239,6 +247,8 @@ func enrichContext(
 							Data: m.URL.String(),
 						},
 					})
+				default:
+					return
 				}
 			}
 		} else {
@@ -251,6 +261,7 @@ func enrichContext(
 		})
 
 		msg = openrouter.Content{}
+
 		if len(c.ResultMedia) != 0 {
 			if c.Result.Text != "" {
 				msg.Multi = append(msg.Multi, openrouter.ChatMessagePart{
@@ -265,7 +276,7 @@ func enrichContext(
 					msg.Multi = append(msg.Multi, openrouter.ChatMessagePart{
 						Type: openrouter.ChatMessagePartTypeImageURL,
 						ImageURL: &openrouter.ChatMessageImageURL{
-							// TODO: get from url url base64
+							// TODO: get from url base64
 							URL: m.URL.String(),
 						},
 					})
@@ -274,7 +285,7 @@ func enrichContext(
 						Type: openrouter.ChatMessagePartTypeFile,
 						File: &openrouter.FileContent{
 							Filename: m.Name,
-							// TODO: get from url url base64
+							// TODO: get from url base64
 							FileData: m.URL.String(),
 						},
 					})
@@ -286,7 +297,6 @@ func enrichContext(
 						},
 					})
 				default:
-
 				}
 			}
 		} else {
@@ -304,8 +314,7 @@ func enrichContext(
 
 func enrichFlags(req *openrouter.ChatCompletionRequest, flags []string) {
 	for _, flag := range flags {
-		switch flag {
-		case entities.FlagWebSearch:
+		if flag == entities.FlagWebSearch {
 			req.Plugins = append(req.Plugins, openrouter.ChatCompletionPlugin{
 				ID: openrouter.PluginIDWeb,
 			})

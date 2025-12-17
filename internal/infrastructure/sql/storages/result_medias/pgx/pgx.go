@@ -20,8 +20,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ resultmedias.ResultMediaStorage = (*Pgx)(nil)
+var (
+	sq                                 = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  resultmedias.ResultMediaStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -135,6 +137,7 @@ func (p *Pgx) GetByResultID(ctx context.Context, i uuid.UUID) ([]*entities.Resul
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
+
 		entityList = append(entityList, &entity)
 	}
 
@@ -158,12 +161,15 @@ func (p *Pgx) Update(ctx context.Context, rm entities.ResultMedia) error {
 	if rmDB.Name != rm.Name {
 		builder.Set(columns[name], rm.Name)
 	}
+
 	if rmDB.URL != rm.URL {
 		builder.Set(columns[columnURL], rm.URL)
 	}
+
 	if rmDB.Size != rm.Size {
 		builder.Set(columns[size], rm.Size)
 	}
+
 	if rmDB.ResultID != rm.ResultID {
 		builder.Set(columns[resultID], rm.ResultID)
 	}
@@ -185,6 +191,7 @@ func (p *Pgx) Update(ctx context.Context, rm entities.ResultMedia) error {
 
 func scanToEntity(row pgx.Row) (entities.ResultMedia, error) {
 	var result models.ResultMedia
+
 	err := row.Scan(
 		&result.ID,
 		&result.Name,

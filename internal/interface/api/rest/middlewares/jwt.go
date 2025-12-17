@@ -17,7 +17,7 @@ import (
 )
 
 type jwtProvider interface {
-	ParseAccess(raw string, f interface{}) (model.ParsedToken, error)
+	ParseAccess(raw string, f any) (model.ParsedToken, error)
 }
 
 func AuthJwt(j jwtProvider) func(next http.Handler) http.Handler {
@@ -31,6 +31,7 @@ func AuthJwt(j jwtProvider) func(next http.Handler) http.Handler {
 					Code:    http.StatusUnauthorized,
 					Message: "Access token required",
 				})
+
 				return
 			}
 
@@ -52,6 +53,7 @@ func AuthJwt(j jwtProvider) func(next http.Handler) http.Handler {
 					http.StatusUnauthorized,
 					response.Error{Message: "Authorization required"},
 				)
+
 				return
 			}
 
@@ -134,6 +136,7 @@ func addTokenCtx(
 			http.StatusUnauthorized,
 			response.Error{Message: "Authorization required"},
 		)
+
 		return ctx
 	}
 

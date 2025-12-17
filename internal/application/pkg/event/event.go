@@ -20,6 +20,7 @@ type Manager struct {
 
 func NewManager(parent context.Context, buffer int) *Manager {
 	ctx, cancel := context.WithCancel(parent)
+
 	return &Manager{
 		ch:     make(chan model.Event, buffer),
 		ctx:    ctx,
@@ -46,6 +47,7 @@ func (m *Manager) Send(e model.Event) error {
 func (m *Manager) Closed() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	return m.closed
 }
 

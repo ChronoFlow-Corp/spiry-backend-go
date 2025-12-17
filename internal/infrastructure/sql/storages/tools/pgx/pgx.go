@@ -19,8 +19,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ tools.ToolStorage = (*Pgx)(nil)
+var (
+	sq                   = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  tools.ToolStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -70,6 +72,7 @@ func (p *Pgx) GetByName(ctx context.Context, toolName string) (*entities.Tool, e
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w: %w", op, tools.ErrNotFound, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -93,6 +96,7 @@ func (p *Pgx) GetAll(ctx context.Context) ([]*entities.Tool, error) {
 	defer rows.Close()
 
 	ts := make([]*entities.Tool, 0)
+
 	for rows.Next() {
 		t, err := scanToEntity(rows)
 		if err != nil {
@@ -107,6 +111,7 @@ func (p *Pgx) GetAll(ctx context.Context) ([]*entities.Tool, error) {
 
 func scanToEntity(row pgx.Row) (entities.Tool, error) {
 	var t models.Tool
+
 	err := row.Scan(
 		&t.ID,
 		&t.Name,
@@ -133,7 +138,7 @@ func scanToEntity(row pgx.Row) (entities.Tool, error) {
 		Modalities: mod,
 		Settings:   t.Settings,
 		Prompt:     t.Prompt,
-		MinLevel:   uint(t.MinLevel),
+		MinLevel:   t.MinLevel,
 		CreatedAt:  t.CreatedAt,
 		UpdatedAt:  t.UpdatedAt,
 	}, nil

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -28,7 +27,7 @@ type AuthModule struct {
 }
 
 func NewAuthModule(cfg *config.Config, service auth.Service, j JWTProvider) *AuthModule {
-	u, err := url.Parse(fmt.Sprintf("http://"))
+	u, err := url.Parse(cfg.HTTP.FrontendUrl)
 	if err != nil {
 		panic("invalid frontend URL " + err.Error())
 	}
@@ -72,6 +71,7 @@ func (a *AuthModule) Login(w http.ResponseWriter, r *http.Request) {
 		slctx.Logger(r.Context()).Debug("no user agent")
 		agent = r.Host
 	}
+
 	uri := a.service.GetAuthURI(agent)
 
 	http.Redirect(w, r, uri, http.StatusTemporaryRedirect)
@@ -101,6 +101,7 @@ func (a *AuthModule) Callback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slctx.Logger(r.Context()).Error("cannot login", slog.Any("error", err))
 		pkg.RedirectError(w, fr, http.StatusInternalServerError, err.Error())
+
 		return
 	}
 
@@ -151,10 +152,12 @@ func (a *AuthModule) Refresh(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
+
 		pkg.RespondError(w, http.StatusInternalServerError, response.Error{
 			Code:    http.StatusInternalServerError,
 			Message: "Internal server error",
 		})
+
 		return
 	}
 
@@ -202,6 +205,7 @@ func (a *AuthModule) Logout(w http.ResponseWriter, r *http.Request) {
 			Code:    http.StatusBadRequest,
 			Message: "Token not provided",
 		})
+
 		return
 	}
 
@@ -256,6 +260,7 @@ func (a *AuthModule) UserInfo(w http.ResponseWriter, r *http.Request) {
 			Code:    http.StatusInternalServerError,
 			Message: "Internal server error",
 		})
+
 		return
 	}
 
@@ -276,7 +281,7 @@ func parseState(state string) (map[string]string, error) {
 	stateKv := strings.Split(state, "=")
 
 	if len(stateKv)%2 != 0 {
-		return nil, fmt.Errorf("invalid state format")
+		return nil, errors.New("invalid state format")
 	}
 
 	for i := 0; i < len(stateKv); i += 2 {

@@ -1,6 +1,7 @@
 package aggregates
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
@@ -21,7 +22,8 @@ func NewCommand(
 	command *entities.Command,
 	medias []*entities.CommandMedia,
 	model *entities.Model,
-	tool *entities.Tool) (*Command, error) {
+	tool *entities.Tool,
+) (*Command, error) {
 	const op = "aggregates.Command.NewCommand"
 
 	err := command.Validate()
@@ -62,7 +64,7 @@ func (c *Command) SetModel(model *entities.Model) error {
 	const op = "aggregates.Command.SetModel"
 
 	if model == nil {
-		return fmt.Errorf("model is nil")
+		return fmt.Errorf("%s: %w", op, errors.New("model is nil"))
 	}
 
 	err := model.Validate()

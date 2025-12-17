@@ -21,8 +21,12 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ subscriptions.SubscriptionStorage = (*Pgx)(nil)
+var (
+	sq = squirrel.StatementBuilder.PlaceholderFormat(
+		squirrel.Dollar,
+	)
+	_ subscriptions.SubscriptionStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -82,6 +86,7 @@ func (p *Pgx) GetByID(ctx context.Context, subID uuid.UUID) (*entities.Subscript
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w: %w", op, subscriptions.ErrNotFound, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -107,7 +112,7 @@ func (p *Pgx) GetAll(ctx context.Context) ([]entities.Subscription, error) {
 	}
 	defer rows.Close()
 
-	var subs []entities.Subscription
+	subs := make([]entities.Subscription, 0)
 
 	for rows.Next() {
 		sub, err := scanToEntity(rows)
@@ -115,12 +120,15 @@ func (p *Pgx) GetAll(ctx context.Context) ([]entities.Subscription, error) {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, fmt.Errorf("%s: %w: %w", op, subscriptions.ErrNotFound, err)
 			}
+
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
+
 		subs = append(subs, sub)
 	}
 
-	if err = rows.Err(); err != nil {
+	err = rows.Err()
+	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -129,6 +137,7 @@ func (p *Pgx) GetAll(ctx context.Context) ([]entities.Subscription, error) {
 
 func scanToEntity(row pgx.Row) (entities.Subscription, error) {
 	var sub models.Subscription
+
 	err := row.Scan(
 		&sub.ID,
 		&sub.Name,
@@ -156,7 +165,7 @@ func scanToEntity(row pgx.Row) (entities.Subscription, error) {
 		ID:        sub.ID,
 		Name:      sub.Name,
 		Period:    entities.Period(sub.Period),
-		Level:     uint(sub.Level),
+		Level:     sub.Level,
 		CreatedAt: sub.CreatedAt,
 		UpdatedAt: sub.UpdatedAt,
 	}
@@ -185,7 +194,7 @@ func scanToEntity(row pgx.Row) (entities.Subscription, error) {
 			Type:     limit.Type,
 			Upload:   limit.Upload,
 			Generate: limit.Generate,
-			Size:     uint64(limit.Size),
+			Size:     limit.Size,
 		}
 	}
 

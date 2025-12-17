@@ -35,7 +35,10 @@ func NewHTTPServer(
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			SetLogger(cfg)
-			ln, err := net.Listen("tcp", srv.Addr)
+
+			lCfg := net.ListenConfig{}
+
+			ln, err := lCfg.Listen(ctx, "tcp", srv.Addr)
 			if err != nil {
 				return err
 			}
@@ -60,11 +63,13 @@ func SetLogger(cfg *config.Config) {
 		slog.SetDefault(
 			slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		)
+
 		return
 	case "production":
 		slog.SetDefault(
 			slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
 		)
+
 		return
 	}
 }

@@ -21,21 +21,24 @@ type Chat struct {
 
 type ChatWithCouples struct {
 	Chat
+
 	CommandResultCouple []byte `db:"command_result_pairs"`
 }
 
 type Couple struct {
-	Command CommandWithMedias  `json:"command"`
-	Result  []ResultWithMedias `json:"results"`
+	Command CommandWithMedias `json:"command"`
+	Result  ResultWithMedias  `json:"result"`
 }
 
 type CommandWithMedias struct {
 	models.Command
+
 	Medias []commandMedia.CommandMedia `json:"medias"`
 }
 
 type ResultWithMedias struct {
 	result.Result
+
 	Medias []resultMedia.ResultMedia `json:"medias"`
 	Model  stmodel.Model             `json:"model"`
 }

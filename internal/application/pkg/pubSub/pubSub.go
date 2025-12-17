@@ -48,9 +48,7 @@ func (ps *PubSub[T]) run() {
 		ps.mu.RLock()
 
 		for sub := range ps.subs {
-			select {
-			case sub <- msg:
-			}
+			sub <- msg
 		}
 
 		ps.mu.RUnlock()

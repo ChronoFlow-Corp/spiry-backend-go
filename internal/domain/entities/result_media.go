@@ -24,16 +24,17 @@ type ResultMedia struct {
 
 func NewResultMedia(
 	name string,
-	Type string,
-	URL *url.URL,
+	resultType string,
+	resultURL *url.URL,
 	size int64,
 	resultID uuid.UUID,
-	userID *uuid.UUID) *ResultMedia {
+	userID *uuid.UUID,
+) *ResultMedia {
 	return &ResultMedia{
 		ID:        uuid.New(),
 		Name:      name,
-		Type:      Type,
-		URL:       URL,
+		Type:      resultType,
+		URL:       resultURL,
 		Size:      size,
 		ResultID:  resultID,
 		UserID:    userID,

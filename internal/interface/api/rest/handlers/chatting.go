@@ -29,7 +29,7 @@ import (
 )
 
 type JWTProvider interface {
-	ParseAccess(raw string, f interface{}) (model.ParsedToken, error)
+	ParseAccess(raw string, f any) (model.ParsedToken, error)
 }
 
 type ChattingModule struct {
@@ -75,6 +75,7 @@ func (m *ChattingModule) Register(r chi.Router) {
 //	@Router		/api/chatting/chat [get]
 func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 	var chatID *uuid.UUID
+
 	q := r.URL.Query().Get("chat_id")
 	if q != "" {
 		v, err := uuid.Parse(q)
@@ -83,6 +84,7 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 				Code:    http.StatusBadRequest,
 				Message: fmt.Sprintf("Invalid chat_id provided: %s", q),
 			})
+
 			return
 		}
 
@@ -106,10 +108,12 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
+
 		pkg.RespondError(w, http.StatusInternalServerError, response.Error{
 			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		})
+
 		return
 	}
 
@@ -132,9 +136,7 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 				Status:    &c.Command.Status,
 				Role:      response.UserRole,
 				CreatedAt: c.Command.CreatedAt,
-			})
-
-			ch.Messages = append(ch.Messages, response.Message{
+			}, response.Message{
 				ID:        c.Result.ID,
 				Text:      c.Result.Text,
 				CreatedAt: c.Result.CreatedAt,
@@ -161,6 +163,7 @@ func (m *ChattingModule) GetChats(w http.ResponseWriter, r *http.Request) {
 //	@Router		/api/chatting/chat [patch]
 func (m *ChattingModule) UpdateChat(w http.ResponseWriter, r *http.Request) {
 	var req request.UpdateChat
+
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		slctx.Logger(r.Context()).Debug("Failed to decode body", slog.Any("error", err))
@@ -188,10 +191,12 @@ func (m *ChattingModule) UpdateChat(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
+
 		pkg.RespondError(w, http.StatusInternalServerError, response.Error{
 			Code:    http.StatusInternalServerError,
 			Message: "Internal server error",
 		})
+
 		return
 	}
 
@@ -232,6 +237,7 @@ func (m *ChattingModule) DeleteChat(w http.ResponseWriter, r *http.Request) {
 	err = m.service.DeleteChat(r.Context(), command.DeleteChat{ChatID: chatID})
 	if err != nil {
 		slctx.Logger(r.Context()).Debug("Failed to delete chat", slog.Any("error", err))
+
 		var notFound *domain.ErrorNotFound
 		if errors.As(err, &notFound) {
 			pkg.RespondError(w, http.StatusNotFound, response.Error{
@@ -266,7 +272,7 @@ func (m *ChattingModule) Execute(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols: []string{"json"},
 		OriginPatterns: []string{
-			fmt.Sprintf("%s", m.frontendUrl.Host),
+			m.frontendUrl.Host,
 		},
 	})
 	if err != nil {
@@ -278,18 +284,22 @@ func (m *ChattingModule) Execute(w http.ResponseWriter, r *http.Request) {
 	logger := slctx.Logger(r.Context())
 	ctx := addCredosToCtx(r.Context())
 	slctx.WithLogger(ctx, logger)
+
 	for {
 		err = m.accept(ctx, conn, l)
 		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 			slctx.Logger(r.Context()).Debug("websocket connection closed")
+
 			return
 		}
 
 		if err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusGoingAway {
 				slctx.Logger(r.Context()).Debug("websocket connection closed")
+
 				return
 			}
+
 			slctx.Logger(r.Context()).Error("websocket accept error", slog.Any("error", err))
 
 			return
@@ -304,6 +314,7 @@ func (m *ChattingModule) accept(
 ) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
+
 	l.Wait(ctx)
 
 	mstp, msg, err := conn.Reader(ctx)
@@ -322,7 +333,19 @@ func (m *ChattingModule) accept(
 	for i, m := range req.Media {
 		u, err := url.Parse(m)
 		if err != nil {
-			// TODO: respond error
+			raw, err := json.Marshal(response.ResponseChunk{
+				Content: "Invalid media url",
+				State:   "ERROR",
+			})
+			if err != nil {
+				return err
+			}
+
+			err = conn.Write(ctx, mstp, raw)
+			if err != nil {
+				return err
+			}
+
 			return err
 		}
 
@@ -339,9 +362,12 @@ func (m *ChattingModule) accept(
 		Media:     medias,
 	})
 	if err != nil {
-		var raw []byte
-		var errNotFound *domain.ErrorNotFound
-		if errors.Is(err, domain.ZeroAllowedTools) {
+		var (
+			raw         []byte
+			errNotFound *domain.ErrorNotFound
+		)
+
+		if errors.Is(err, domain.ErrZeroAllowedTools) {
 			raw, err = json.Marshal(response.ResponseChunk{
 				Content: "There are no allowed tools",
 				State:   "ERROR",
@@ -362,16 +388,20 @@ func (m *ChattingModule) accept(
 			})
 		}
 
-		_ = conn.Write(ctx, mstp, raw)
+		err = conn.Write(ctx, mstp, raw)
+		if err != nil {
+			return err
+		}
 
 		return err
 	}
 
-	for ch := range event.Stream() {
+	for ch := range event.Eventer.Stream() {
 		switch ch.Type {
 		case model.ErrorEvent:
 			var raw []byte
-			if errors.Is(ch.Cause, domain.ZeroAllowedTools) {
+
+			if errors.Is(ch.Cause, domain.ErrZeroAllowedTools) {
 				raw, err = json.Marshal(response.ResponseChunk{
 					MessageID: ch.ResultID.String(),
 					Content:   "There are no allowed tools",
@@ -399,6 +429,10 @@ func (m *ChattingModule) accept(
 		}
 	}
 
+	return nil
+}
+
+func handleErrorToWs(conn *websocket.Conn, err error) error {
 	return nil
 }
 

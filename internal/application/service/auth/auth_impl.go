@@ -46,7 +46,6 @@ func NewAuthUseCase(
 	repo UseCaseRepository,
 	tokenProvider TokenProvider,
 	oAuthProvider OAuthProvider,
-
 ) *UseCase {
 	return &UseCase{
 		repo:          repo,

@@ -28,7 +28,8 @@ func NewResult(
 	toolID uuid.UUID,
 	chatID uuid.UUID,
 	modelID uuid.UUID,
-	userID *uuid.UUID) *Result {
+	userID *uuid.UUID,
+) *Result {
 	return &Result{
 		ID:           uuid.New(),
 		Text:         text,

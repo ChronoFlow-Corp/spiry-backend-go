@@ -24,7 +24,7 @@ func NewServeMux(cfg *config.Config, routes []RouteModule) chi.Router {
 	var origin string
 
 	if cfg.Env == "development" {
-		origin = fmt.Sprintf("http://%s", u.Host)
+		origin = fmt.Sprintf("http://%s", u.Host) //nolint:revive
 	}
 
 	if cfg.Env == "production" {

@@ -2,8 +2,8 @@ package llm
 
 import (
 	"errors"
+	"fmt"
 	"io"
-	"os"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
@@ -23,11 +23,7 @@ func writer(input chan<- entities.Chunk, reader *openrouter.ChatCompletionStream
 
 	chunk := entities.Chunk{}
 
-	fd, err := os.Create("tmp.json")
-	if err != nil {
-		panic(err)
-	}
-	defer fd.Close()
+	var reqErr *openrouter.RequestError
 
 	for {
 		ch, err := reader.Recv()
@@ -35,10 +31,20 @@ func writer(input chan<- entities.Chunk, reader *openrouter.ChatCompletionStream
 			if errors.Is(err, io.EOF) {
 				chunk.Err = domain.ErrStreamClosed
 				input <- chunk
+
 				return
 			}
+
 			chunk.Err = err
 			input <- chunk
+
+			return
+		}
+
+		if errors.As(err, &reqErr) {
+			chunk.Err = fmt.Errorf("%w: %w", domain.ErrThirdPartyService, reqErr)
+			input <- chunk
+
 			return
 		}
 

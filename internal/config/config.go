@@ -17,47 +17,54 @@ const (
 
 // Config struct contains all for start spiry application.
 type Config struct {
-	Env        string     `yaml:"env"      env:"ENV" env-default:"development"`
+	Env        string     `env:"ENV"           env-default:"development" yaml:"env"`
 	HTTP       http       `yaml:"http"`
 	GoogleAuth googleAuth `yaml:"google"`
-	Database   database   `yaml:"database"                                     env-required:"true"`
+	Database   database   `env-required:"true" yaml:"database"`
 	JWT        jwt        `yaml:"jwt"`
-	LLM        llm        `yaml:"llm"                                          env-required:"true"`
+	LLM        llm        `env-required:"true" yaml:"llm"`
 }
 
 type database struct {
-	PostgresPassword string `yaml:"postgresPassword" env-required:"true"`
-	PostgresHost     string `yaml:"postgresHost"     env-required:"true"`
-	PostgresPort     string `yaml:"postgresPort"     env-required:"true"`
-	PostgresUser     string `yaml:"postgresUser"     env-required:"true"`
-	PostgresDatabase string `yaml:"postgresDatabase" env-required:"true"`
-	PathToMigrations string `yaml:"pathToMigrations"`
+	PostgresPassword string `env-required:"true"       yaml:"postgres_password"`
+	PostgresHost     string `env-required:"true"       yaml:"postgres_host"`
+	PostgresPort     string `env-required:"true"       yaml:"postgres_port"`
+	PostgresUser     string `env-required:"true"       yaml:"postgres_user"`
+	PostgresDatabase string `env-required:"true"       yaml:"postgres_database"`
+	PathToMigrations string `yaml:"path_to_migrations"`
 }
 
 type jwt struct {
-	RefreshSecret       string        `yaml:"refreshSecret"       env-required:"true"`
-	AccessSecretPublic  string        `yaml:"accessSecretPublic"  env-required:"true"`
-	AccessSecretPrivate string        `yaml:"accessSecretPrivate" env-required:"true"`
-	AccessExpire        time.Duration `yaml:"accessExpire"                            env-default:"3h"`
-	RefreshExpire       time.Duration `yaml:"refreshExpire"                           env-default:"24h"`
+	RefreshSecret       string        `env-required:"true" yaml:"refresh_secret"`
+	AccessSecretPublic  string        `env-required:"true" yaml:"access_secret_public"`
+	AccessSecretPrivate string        `env-required:"true" yaml:"access_secret_private"`
+	AccessExpire        time.Duration `env-default:"3h"    yaml:"access_expire"`
+	RefreshExpire       time.Duration `env-default:"24h"   yaml:"refresh_expire"`
 }
 type http struct {
 	Addr        string        `env:"HTTP_ADDR"       env-default:"localhost" yaml:"addr"`
 	Port        int           `env:"HTTP_PORT"       env-default:"8080"      yaml:"port"`
 	Timeout     time.Duration `env:"HTTP_TIMEOUT"    env-default:"5s"        yaml:"timeout"`
-	CertFile    string        `env:"HTTPS_CERT_FILE"                         yaml:"certFile"`
-	KeyFile     string        `env:"HTTPS_KEY_FILE"                          yaml:"keyFile"`
-	FrontendUrl string        `env:"FRONTEND_URL"                            yaml:"frontendURL" env-required:"true"`
+	CertFile    string        `env:"HTTPS_CERT_FILE" yaml:"cert_file"`
+	KeyFile     string        `env:"HTTPS_KEY_FILE"  yaml:"key_file"`
+	FrontendUrl string        `env:"FRONTEND_URL"    env-required:"true"     yaml:"frontend_url"`
 }
 
 type googleAuth struct {
-	ClientID     string `env:"GOOGLE_CLIENT_ID"     env-required:"true" yaml:"clientId"`
-	ClientSecret string `env:"GOOGLE_CLIENT_SECRET" env-required:"true" yaml:"clientSecret"`
-	RedirectURI  string `env:"GOOGLE_REDIRECT_URI"  env-required:"true" yaml:"redirectURI"`
+	ClientID     string `env:"GOOGLE_CLIENT_ID"     env-required:"true" yaml:"client_id"`
+	ClientSecret string `env:"GOOGLE_CLIENT_SECRET" env-required:"true" yaml:"client_secret"`
+	RedirectURI  string `env:"GOOGLE_REDIRECT_URI"  env-required:"true" yaml:"redirect_uri"`
 }
 
 type llm struct {
 	Key string `env-required:"true" yaml:"key"`
+}
+
+func NewConfig() *Config {
+	cfg := &Config{}
+	cfg.MustLoad()
+
+	return cfg
 }
 
 // MustLoad modify config struct if you have error it panics.
@@ -72,10 +79,7 @@ func (c *Config) MustLoad() {
 		panic("failed to read config: " + err.Error())
 	}
 
-	switch c.Env {
-	case devEnv:
-	case prodEnv:
-	default:
+	if c.Env != devEnv && c.Env != prodEnv {
 		panic(fmt.Sprintf("Environment variable %s not allowed", c.Env))
 	}
 
@@ -86,18 +90,12 @@ func (c *Config) MustLoad() {
 	}
 }
 
-func NewConfig() *Config {
-	cfg := &Config{}
-	cfg.MustLoad()
-	return cfg
-}
-
 func (c *Config) mustJwtLoad() {
 	pbFd, err := os.Open(c.JWT.AccessSecretPublic)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open access secret public file: %s", err))
 	}
-	defer pbFd.Close()
+	defer pbFd.Close() //nolint:errcheck // no matter
 
 	pb, err := io.ReadAll(pbFd)
 	if err != nil {
@@ -110,7 +108,7 @@ func (c *Config) mustJwtLoad() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to open access secret private file: %s", err))
 	}
-	defer prFd.Close()
+	defer prFd.Close() //nolint:errcheck // no matter
 
 	pr, err := io.ReadAll(prFd)
 	if err != nil {
@@ -125,7 +123,7 @@ func (c *Config) mustSslLoad() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to open ssl cert file: %s: %s", c.HTTP.CertFile, err))
 	}
-	defer certFd.Close()
+	defer certFd.Close() //nolint:errcheck // no matter
 
 	certBytes, err := io.ReadAll(certFd)
 	if err != nil {
@@ -138,7 +136,7 @@ func (c *Config) mustSslLoad() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to open ssl key file: %s: %s", c.HTTP.KeyFile, err))
 	}
-	defer keyFd.Close()
+	defer keyFd.Close() //nolint:errcheck // no matter
 
 	keyBytes, err := io.ReadAll(keyFd)
 	if err != nil {

@@ -74,6 +74,45 @@ func (c *Chatting) CheckExecuteAndChangeLimits(
 ) error {
 	const op = "domain.service.Chatting.CanExecute"
 
+	err := checkToolLimitAndDec(cm, plan, tool)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	err = checkMedidaLimitAndDec(cm, plan, tool)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	err = checkFlagLimitAndDec(cm, plan)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func checkFlagLimitAndDec(cm aggregates.Command, plan *entities.Plan) error {
+	const op = "domain.service.checkFlagLimitAndDec"
+
+	for i, v := range plan.Quote.FlagLimits {
+		for _, f := range cm.Flags {
+			if v.Name == f {
+				if v.Usage == 0 {
+					return domain.NewForbidden(nil, op, "usage", v.Name)
+				}
+
+				plan.Quote.FlagLimits[i].Usage--
+			}
+		}
+	}
+
+	return nil
+}
+
+func checkToolLimitAndDec(cm aggregates.Command, plan *entities.Plan, tool entities.Tool) error {
+	const op = "domain.service.checkToolLimitAndDec"
+
 	for i, tl := range plan.Quote.ToolLimits {
 		if tl.ID == tool.ID {
 			for k := range cm.Settings {
@@ -98,10 +137,17 @@ func (c *Chatting) CheckExecuteAndChangeLimits(
 		}
 	}
 
+	return nil
+}
+
+func checkMedidaLimitAndDec(cm aggregates.Command, plan *entities.Plan, tool entities.Tool) error {
+	const op = "domain.service.checkMedidaLimitAndDec"
+
 	mediaCount := make(map[string]int)
 
 	for _, m := range cm.Medias {
 		mediaCount[m.Type]++
+
 		for i, ml := range plan.Quote.MediaLimit {
 			if m.Type == ml.Type {
 				if ml.Size < m.Size {
@@ -130,18 +176,6 @@ func (c *Chatting) CheckExecuteAndChangeLimits(
 				if v > ml.Upload {
 					return errors.New("count media upload not allowed")
 				}
-			}
-		}
-	}
-
-	for i, v := range plan.Quote.FlagLimits {
-		for _, f := range cm.Flags {
-			if v.Name == f {
-				if v.Usage == 0 {
-					return domain.NewForbidden(nil, op, "usage", v.Name)
-				}
-
-				plan.Quote.FlagLimits[i].Usage--
 			}
 		}
 	}

@@ -164,7 +164,7 @@ func main() {
 			),
 		),
 		fx.Invoke(
-			func(srv *http.Server) {}),
+			func(_ *http.Server) {}),
 	)
 
 	app.Run()

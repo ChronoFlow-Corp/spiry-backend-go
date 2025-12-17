@@ -47,7 +47,7 @@ func (c *Chat) SetTitle(title string) error {
 	oldTitle := c.Title
 	c.Title = title
 
-	err := c.Chat.Validate()
+	err := c.Validate()
 	if err != nil {
 		c.Title = oldTitle
 

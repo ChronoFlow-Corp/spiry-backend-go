@@ -19,8 +19,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ results.ResultStorage = (*Pgx)(nil)
+var (
+	sq                       = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  results.ResultStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -86,6 +88,7 @@ func (p *Pgx) GetByCommandID(ctx context.Context, i uuid.UUID) (*entities.Result
 
 func scanToEntity(row pgx.Row) (entities.Result, error) {
 	var res models.Result
+
 	err := row.Scan(
 		&res.ID,
 		&res.OpenRouterID,

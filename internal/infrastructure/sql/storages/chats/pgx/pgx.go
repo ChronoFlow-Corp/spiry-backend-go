@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/aggregates"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
 	domainModels "github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
@@ -78,6 +79,7 @@ func (p *Pgx) GetByID(ctx context.Context, chatID uuid.UUID) (*entities.Chat, er
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w: %w", op, chats.ErrNotFound, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -156,23 +158,25 @@ func (p *Pgx) GetAll(ctx context.Context) ([]*entities.Chat, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	fmt.Println(query, args, "ONE!!!!!!!!!!!!!!!1")
 
 	rows, err := conn.Query(ctx, query, args...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w: %w", op, chats.ErrNotFound, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	defer rows.Close()
 
 	ch := make([]*entities.Chat, 0)
+
 	for rows.Next() {
 		chat, err := scanToEntity(rows)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
+
 		ch = append(ch, &chat)
 	}
 
@@ -187,15 +191,23 @@ func (p *Pgx) GetByIDWithCommandsResults(
 
 	conn := p.getter.DefaultTrOrDB(ctx, p.pool)
 
-	uID, _ := ctx.Value(domainModels.UserIDCtxKey{}).(uuid.UUID)
+	uID, ok := domainModels.GetUserIDFromCtx(ctx)
+	if !ok {
+		return nil, fmt.Errorf(
+			"%s: %w",
+			op,
+			domain.NewNotFound(nil, "not found", columns[userID], ""),
+		)
+	}
 
-	row := conn.QueryRow(ctx, chatWithMediasQuery, chatID, uID)
+	row := conn.QueryRow(ctx, chatWithMediasQuery1, chatID, uID)
 
 	agg, err := scanToAggregate(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, chats.ErrNotFound)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -204,6 +216,7 @@ func (p *Pgx) GetByIDWithCommandsResults(
 
 func scanToEntity(row pgx.Row) (entities.Chat, error) {
 	var chat models.Chat
+
 	err := row.Scan(&chat.ID, &chat.Title, &chat.CreatedAt, &chat.UpdatedAt, &chat.UserID)
 	if err != nil {
 		return entities.Chat{}, err
@@ -222,6 +235,7 @@ func scanToEntity(row pgx.Row) (entities.Chat, error) {
 
 func scanToAggregate(rows pgx.Row) (aggregates.Chat, error) {
 	var chat models.ChatWithCouples
+
 	err := rows.Scan(
 		&chat.ID,
 		&chat.Title,
@@ -235,6 +249,7 @@ func scanToAggregate(rows pgx.Row) (aggregates.Chat, error) {
 	}
 
 	var couple []models.Couple
+
 	err = json.Unmarshal(chat.CommandResultCouple, &couple)
 	if err != nil {
 		return aggregates.Chat{}, err
@@ -255,9 +270,9 @@ func scanToAggregate(rows pgx.Row) (aggregates.Chat, error) {
 		agg.Couples = append(agg.Couples, aggregates.CommandResultCouple{
 			Command:      mapCommand(c.Command),
 			CommandMedia: mapCommandMedias(c.Command),
-			Result:       mapResult(c.Result[0]),
-			ResultMedia:  mapResultMedia(c.Result[0]),
-			Model:        mapModel(c.Result[0]),
+			Result:       mapResult(c.Result),
+			ResultMedia:  mapResultMedia(c.Result),
+			Model:        mapModel(c.Result),
 		})
 	}
 
@@ -284,6 +299,7 @@ func mapCommand(cm models.CommandWithMedias) *entities.Command {
 
 func mapCommandMedias(cm models.CommandWithMedias) []*entities.CommandMedia {
 	commandMedias := make([]*entities.CommandMedia, 0)
+
 	for _, m := range cm.Medias {
 		u, err := url.Parse(m.URL)
 		if err != nil {
@@ -295,7 +311,7 @@ func mapCommandMedias(cm models.CommandWithMedias) []*entities.CommandMedia {
 			Name:      m.Name,
 			Type:      m.Type,
 			URL:       *u,
-			Size:      uint64(m.Size),
+			Size:      m.Size,
 			CommandID: m.CommandID,
 			UserID:    m.UserID,
 			CreatedAt: m.CreatedAt,
@@ -337,11 +353,13 @@ func mapModel(cm models.ResultWithMedias) *entities.Model {
 
 func mapResultMedia(cm models.ResultWithMedias) []*entities.ResultMedia {
 	resultMedia := make([]*entities.ResultMedia, 0)
+
 	for _, m := range cm.Medias {
 		u, err := url.Parse(m.URL)
 		if err != nil {
 			panic(err)
 		}
+
 		resultMedia = append(resultMedia, &entities.ResultMedia{
 			ID:        m.ID,
 			Name:      m.Name,

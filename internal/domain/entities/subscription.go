@@ -58,10 +58,7 @@ func (s *Subscription) Validate() error {
 		return domain.NewValidationError(nil, "name", "name is too long")
 	}
 
-	switch s.Period {
-	case Month:
-	case Year:
-	default:
+	if s.Period != Day && s.Period != Month && s.Period != Year {
 		return domain.NewValidationError(nil, "Period", "invalid Period")
 	}
 

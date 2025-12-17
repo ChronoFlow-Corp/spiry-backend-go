@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/command"
-	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/pkg/event"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/query"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/result"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
@@ -19,7 +18,7 @@ type Service interface {
 	GetChats(ctx context.Context, q query.GetChats) ([]result.GetChats, error)
 	UpdateTitle(ctx context.Context, cm command.UpdateTitle) error
 	DeleteChat(ctx context.Context, cm command.DeleteChat) error
-	ExecuteCommand(ctx context.Context, cm command.Execute) (*event.Manager, error)
+	ExecuteCommand(ctx context.Context, cm command.Execute) (result.Execute, error)
 }
 
 var _ Service = (*Chatting)(nil)
@@ -33,7 +32,8 @@ type Chatting struct {
 func NewChatting(
 	repo UseCaseRepository,
 	authRepo AuthRepository,
-	chattingDomain *service.Chatting) *Chatting {
+	chattingDomain *service.Chatting,
+) *Chatting {
 	return &Chatting{
 		chattingDomain: chattingDomain,
 		repo:           repo,
@@ -49,6 +49,7 @@ func (c *Chatting) GetChats(ctx context.Context, q query.GetChats) ([]result.Get
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
+
 		res := make([]result.GetChats, 0, len(chats))
 		for _, chat := range chats {
 			res = append(res, result.GetChats{
@@ -135,17 +136,19 @@ func (c *Chatting) DeleteChat(ctx context.Context, cm command.DeleteChat) error 
 	return nil
 }
 
-func (c *Chatting) ExecuteCommand(ctx context.Context, cm command.Execute) (*event.Manager, error) {
+func (c *Chatting) ExecuteCommand(ctx context.Context, cm command.Execute) (result.Execute, error) {
 	const op = "application.service.Chatting.Execute"
 
-	var plan *entities.Plan
-	var userID *uuid.UUID
+	var (
+		plan   *entities.Plan
+		userID *uuid.UUID
+	)
 
 	userID, ok := models.GetUserIDFromCtx(ctx)
 	if ok {
 		u, err := c.authRepo.GetUserByID(ctx, *userID)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
+			return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 		}
 
 		plan = u.Plan
@@ -154,14 +157,14 @@ func (c *Chatting) ExecuteCommand(ctx context.Context, cm command.Execute) (*eve
 	if ip, ok := models.GetUnloggedUserIPFromCtx(ctx); ok {
 		u, err := c.authRepo.GetUnloggedByIP(ctx, *ip)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
+			return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 		}
 
 		plan = u.Plan
 	}
 
 	if plan == nil {
-		return nil, errors.New("unlogged user not found")
+		return result.Execute{}, errors.New("unlogged user not found")
 	}
 
 	return c.execute(ctx, cm, plan, userID)

@@ -1,6 +1,7 @@
 package aggregates
 
 import (
+	"fmt"
 	"slices"
 	"time"
 
@@ -28,23 +29,24 @@ func NewUser(
 	user *entities.User,
 	plan *entities.Plan,
 	models []*entities.Model,
-	sessions []*entities.Session) (*User, error) {
+	sessions []*entities.Session,
+) (*User, error) {
 	const op = "domain.aggregates.NewUser"
 
 	err := user.Validate()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	err = plan.Validate()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	for _, session := range sessions {
 		err = session.Validate()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", op, err)
 		}
 	}
 
@@ -70,21 +72,23 @@ func (u *User) AddSession(session *entities.Session) error {
 	return nil
 }
 
-func (u *User) UpdateSessionToken(old string, new string, expiresAt time.Time) error {
+func (u *User) UpdateSessionToken(old string, newToken string, expiresAt time.Time) error {
 	for i, session := range u.Sessions {
-		if session.Token == old {
-			u.Sessions[i].Token = new
-			u.Sessions[i].UpdatedAt = time.Now().UTC()
-			u.Sessions[i].ExpiresAt = expiresAt
-			u.Sessions[i].LastLogin = time.Now()
-
-			err := session.Validate()
-			if err != nil {
-				return err
-			}
-
-			return nil
+		if session.Token != old {
+			continue
 		}
+
+		u.Sessions[i].Token = newToken
+		u.Sessions[i].UpdatedAt = time.Now().UTC()
+		u.Sessions[i].ExpiresAt = expiresAt
+		u.Sessions[i].LastLogin = time.Now()
+
+		err := session.Validate()
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	return domain.NewNotFound(nil, "not found session", "session", old)

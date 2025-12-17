@@ -46,7 +46,8 @@ func NewUser(
 	avatarURL string,
 	theme Theme,
 	googleAccessToken string,
-	googleRefreshToken string) *User {
+	googleRefreshToken string,
+) *User {
 	return &User{
 		ID:                 uuid.New(),
 		Email:              email,
@@ -102,11 +103,7 @@ func (u *User) Validate() error {
 		)
 	}
 
-	switch u.Theme {
-	case ThemeLight:
-	case ThemeDark:
-	case ThemeAuto:
-	default:
+	if u.Theme != ThemeAuto && u.Theme != ThemeDark && u.Theme != ThemeLight {
 		return domain.NewValidationError(
 			nil,
 			"theme",

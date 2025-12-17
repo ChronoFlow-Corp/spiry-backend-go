@@ -14,7 +14,8 @@ func NewResult(
 	result *entities.Result,
 	medias []*entities.ResultMedia,
 	tool *entities.Tool,
-	model *entities.Model) (*Result, error) {
+	model *entities.Model,
+) (*Result, error) {
 	err := result.Validate()
 	if err != nil {
 		return nil, err

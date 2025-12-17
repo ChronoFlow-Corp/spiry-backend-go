@@ -41,16 +41,17 @@ type CommandMedia struct {
 
 func NewCommandMedia(
 	name string,
-	Type string,
-	URL url.URL,
+	mediaType string,
+	mediaURL url.URL,
 	size uint64,
 	commandID *uuid.UUID,
-	userID *uuid.UUID) *CommandMedia {
+	userID *uuid.UUID,
+) *CommandMedia {
 	return &CommandMedia{
 		ID:        uuid.New(),
 		Name:      name,
-		Type:      Type,
-		URL:       URL,
+		Type:      mediaType,
+		URL:       mediaURL,
 		Size:      size,
 		CommandID: commandID,
 		UserID:    userID,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/model"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/pkg/event"
@@ -18,6 +17,7 @@ import (
 )
 
 func (c *Chatting) saveResult(
+	ctx context.Context,
 	commandAggregate *aggregates.Command,
 	rec models2.RecognizeResult,
 	userID *uuid.UUID,
@@ -27,9 +27,6 @@ func (c *Chatting) saveResult(
 ) (err error) {
 	const op = "application.service.Chatting.saveResult"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
 	resultID := uuid.New()
 	collector := result_collector.NewCollector(userID, resultID, chat.ID)
 	st := make(chan entities.Chunk)
@@ -37,7 +34,7 @@ func (c *Chatting) saveResult(
 	defer eventer.Close()
 	defer func() {
 		if err != nil {
-			_ = eventer.Send(model.NewErrorEvent(chat.ID, resultID, err)) //nolint:errcheck
+			sendEvent(eventer, model.NewErrorEvent(chat.ID, resultID, err))
 		}
 	}()
 
@@ -54,11 +51,7 @@ func (c *Chatting) saveResult(
 
 		collector.AddChunk(chunk)
 
-		if !eventer.Closed() {
-			_ = eventer.Send( //nolint:errcheck
-				model.NewGeneratingEvent(chat.ID, resultID, chunk.Content),
-			)
-		}
+		sendEvent(eventer, model.NewGeneratingEvent(chat.ID, resultID, chunk.Content))
 	}
 
 	if len(chat.Couples) == 0 {
@@ -72,9 +65,7 @@ func (c *Chatting) saveResult(
 			return fmt.Errorf("%s: %w", op, err)
 		}
 
-		if !eventer.Closed() {
-			_ = eventer.Send(model.NewTitleEvent(chat.ID, resultID, rec.Title)) //nolint:errcheck
-		}
+		sendEvent(eventer, model.NewTitleEvent(chat.ID, resultID, rec.Title))
 	}
 
 	openRouterID, fullAnswer := collector.Finalize()
@@ -106,9 +97,16 @@ func (c *Chatting) saveResult(
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	if !eventer.Closed() {
-		_ = eventer.Send(model.NewDoneEvent(chat.ID, resultID)) //nolint:errcheck
-	}
+	sendEvent(eventer, model.NewDoneEvent(chat.ID, resultID))
 
 	return nil
+}
+
+func sendEvent(eventer *event.Manager, event model.Event) {
+	if !eventer.Closed() {
+		err := eventer.Send(event)
+		if err != nil {
+			return
+		}
+	}
 }

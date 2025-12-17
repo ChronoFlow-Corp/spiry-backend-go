@@ -20,8 +20,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ plans.PlanStorage = (*Pgx)(nil)
+var (
+	sq                   = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  plans.PlanStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -36,6 +38,7 @@ func (p *Pgx) Create(ctx context.Context, plan entities.Plan) error {
 	conn := p.getter.DefaultTrOrDB(ctx, p.pool)
 
 	var userID *uuid.UUID
+
 	if plan.UserID != uuid.Nil {
 		userID = &plan.UserID
 	}
@@ -86,7 +89,6 @@ func (p *Pgx) GetByUserID(ctx context.Context, userID uuid.UUID) (*entities.Plan
 
 	plan, err := scanToEntity(row)
 	if err != nil {
-
 		return nil, handlePgxError(op, err)
 	}
 
@@ -157,6 +159,7 @@ func (p *Pgx) Update(ctx context.Context, plan entities.Plan) error {
 
 func scanToEntity(row pgx.Row) (entities.Plan, error) {
 	var p models.Plan
+
 	err := row.Scan(
 		&p.ID,
 		&p.Quote,
@@ -207,7 +210,7 @@ func scanToEntity(row pgx.Row) (entities.Plan, error) {
 			Type:     limit.Type,
 			Upload:   limit.Upload,
 			Generate: limit.Generate,
-			Size:     uint64(limit.Size),
+			Size:     limit.Size,
 		}
 	}
 
@@ -241,7 +244,7 @@ func marshalQuoteToModel(q entities.Quote) ([]byte, error) {
 			Type:     limit.Type,
 			Upload:   limit.Upload,
 			Generate: limit.Generate,
-			Size:     int(limit.Size),
+			Size:     limit.Size,
 		}
 	}
 

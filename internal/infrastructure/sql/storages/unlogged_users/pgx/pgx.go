@@ -18,8 +18,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ unloggedusers.UnloggedUserStorage = (*Pgx)(nil)
+var (
+	sq                                   = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  unloggedusers.UnloggedUserStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -32,6 +34,7 @@ func (p *Pgx) Create(ctx context.Context, u *entities.UnloggedUser) error {
 	const op = "storages.unlogged_users.pgx.Create"
 
 	conn := p.getter.DefaultTrOrDB(ctx, p.pool)
+
 	query, values, err := sq.Insert(table).
 		Columns(columns...).
 		Values(u.ID, u.IP, u.PlanID, u.CreatedAt).
@@ -52,6 +55,7 @@ func (p *Pgx) GetByIP(ctx context.Context, ip string) (*entities.UnloggedUser, e
 	const op = "storages.unlogged_users.pgx.GetByIP"
 
 	conn := p.getter.DefaultTrOrDB(ctx, p.pool)
+
 	query, values, err := sq.Select(columns...).
 		From(table).
 		Where(squirrel.Eq{columns[ip_address]: ip}).
@@ -72,6 +76,7 @@ func (p *Pgx) GetByIP(ctx context.Context, ip string) (*entities.UnloggedUser, e
 
 func scanToEntity(row pgx.Row) (entities.UnloggedUser, error) {
 	var mod models.UnloggedUser
+
 	err := row.Scan(&mod.ID, &mod.IP, &mod.PlanID, &mod.CreatedAt)
 	if err != nil {
 		return entities.UnloggedUser{}, err

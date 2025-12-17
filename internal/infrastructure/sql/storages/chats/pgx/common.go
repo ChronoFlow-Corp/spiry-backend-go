@@ -29,5 +29,6 @@ func addUserIDWhere(ctx context.Context, builder any) {
 
 func getUserId(ctx context.Context) (uuid.UUID, bool) {
 	uID, ok := ctx.Value(domainModels.UserIDCtxKey{}).(uuid.UUID)
+
 	return uID, ok
 }

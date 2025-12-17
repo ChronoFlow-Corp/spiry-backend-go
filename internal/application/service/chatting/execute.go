@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/command"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/pkg/event"
+	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/application/result"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/aggregates"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/entities"
 	"github.com/ChronoFlow-Corp/spiry-backend-go/internal/domain/models"
@@ -19,37 +21,39 @@ func (c *Chatting) execute(
 	cm command.Execute,
 	plan *entities.Plan,
 	userID *uuid.UUID,
-) (*event.Manager, error) {
+) (result.Execute, error) {
 	const op = "service.chatting.execute"
 
-	var chat *aggregates.Chat
-	var err error
+	var (
+		chat *aggregates.Chat
+		err  error
+	)
 
 	if cm.ChatID != nil {
 		chat, err = c.repo.GetChatByID(ctx, *cm.ChatID)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
+			return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 		}
 	} else {
 		chat, err = aggregates.NewChat(entities.NewChat(userID, "New chat"), nil)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
+			return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 		}
 	}
 
 	aggCommand, err := c.newCommandFromInput(ctx, cm, chat.ID)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	allowedTools, err := c.repo.GetAllowedTools(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	allowedModels, err := c.repo.GetAllowedModels(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	recognized, err := c.chattingDomain.RecognizeTool(ctx, models.RecognizeCommand{
@@ -58,27 +62,27 @@ func (c *Chatting) execute(
 		AllowedModels: allowedModels,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	err = c.chattingDomain.CheckExecuteAndChangeLimits(*aggCommand, plan, *recognized.Tool)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	err = c.authRepo.SavePlan(ctx, plan)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	err = c.repo.SaveChat(ctx, chat)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	err = c.repo.SaveCommand(ctx, aggCommand)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	stream, err := c.chattingDomain.ExecuteStreaming(ctx, models.ExecuteStreaming{
@@ -88,19 +92,25 @@ func (c *Chatting) execute(
 		Context: chat.Couples,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return result.Execute{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	eventer := event.NewManager(ctx, 10)
 
+	saveCtx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+
 	go func() {
-		err := c.saveResult(aggCommand, recognized, userID, chat, stream, eventer)
+		defer cancel()
+
+		err := c.saveResult(saveCtx, aggCommand, recognized, userID, chat, stream, eventer)
 		if err != nil {
 			slctx.Logger(ctx).Debug("cannot save result", slog.Any("error", err))
 		}
 	}()
 
-	return eventer, nil
+	return result.Execute{
+		Eventer: eventer,
+	}, nil
 }
 
 func (c *Chatting) newCommandFromInput(
@@ -108,7 +118,6 @@ func (c *Chatting) newCommandFromInput(
 	cm command.Execute,
 	chatID uuid.UUID,
 ) (*aggregates.Command, error) {
-
 	userID, _ := models.GetUserIDFromCtx(ctx)
 
 	medias, err := c.repo.GetMediaByUrls(ctx, cm.Media)
@@ -117,6 +126,7 @@ func (c *Chatting) newCommandFromInput(
 	}
 
 	var aggCommand *aggregates.Command
+
 	switch {
 	case cm.ToolName == "" && cm.ModelName == "":
 		cmEntity := entities.NewCommand(

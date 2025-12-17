@@ -21,8 +21,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ commands.CommandStorage = (*Pgx)(nil)
+var (
+	sq                         = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  commands.CommandStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -88,6 +90,7 @@ func (p *Pgx) GetByID(ctx context.Context, commandID uuid.UUID) (*entities.Comma
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w: %w", op, commands.ErrNotFound, err)
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -111,12 +114,15 @@ func (p *Pgx) Update(ctx context.Context, command entities.Command) error {
 	if command.Prompt != cmdDB.Prompt {
 		update = update.Set(columns[prompt], command.Prompt)
 	}
+
 	if command.Settings != nil {
 		update = update.Set(columns[settings], command.Settings)
 	}
+
 	if !slices.Equal(command.Flags, cmdDB.Flags) {
 		update = update.Set(columns[flags], command.Flags)
 	}
+
 	if command.Status != cmdDB.Status {
 		update = update.Set(columns[status], command.Status)
 	}
@@ -162,6 +168,7 @@ func (p *Pgx) Delete(ctx context.Context, commandID uuid.UUID) error {
 
 func scanToEntity(row pgx.Row) (entities.Command, error) {
 	var command models.Command
+
 	err := row.Scan(
 		&command.ID,
 		&command.Prompt,

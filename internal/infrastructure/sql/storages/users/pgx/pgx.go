@@ -18,8 +18,10 @@ type Pgx struct {
 	getter *trmgr.CtxGetter
 }
 
-var sq = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-var _ users.UserStorage = (*Pgx)(nil)
+var (
+	sq                   = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	_  users.UserStorage = (*Pgx)(nil)
+)
 
 func NewPgx(pool *pgxpool.Pool) *Pgx {
 	return &Pgx{
@@ -122,21 +124,27 @@ func (p *Pgx) Update(ctx context.Context, user entities.User) error {
 	if userDB.Name != user.Name {
 		update = update.Set(columns[name], user.Name)
 	}
+
 	if userDB.Email != user.Email {
 		update = update.Set(columns[email], user.Email)
 	}
+
 	if userDB.LastName != user.LastName {
 		update = update.Set(columns[lastName], user.LastName)
 	}
+
 	if userDB.AvatarURL != user.AvatarURL {
 		update = update.Set(columns[avatarURL], user.AvatarURL)
 	}
+
 	if userDB.Theme != user.Theme {
 		update = update.Set(columns[theme], user.Theme)
 	}
+
 	if userDB.GoogleAccessToken != user.GoogleAccessToken {
 		update = update.Set(columns[googleAccessToken], user.GoogleAccessToken)
 	}
+
 	if userDB.GoogleRefreshToken != user.GoogleRefreshToken {
 		update = update.Set(columns[googleRefreshToken], user.GoogleRefreshToken)
 	}

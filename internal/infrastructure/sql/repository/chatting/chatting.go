@@ -67,6 +67,7 @@ func NewRepository(
 
 func (r *Repository) SaveCommand(ctx context.Context, cm *aggregates.Command) error {
 	const op = "repository.chatting.SaveCommand"
+
 	err := r.manager.Do(ctx, func(ctx context.Context) error {
 		_, err := r.command.GetByID(ctx, cm.ID)
 		switch {
@@ -108,6 +109,7 @@ func (r *Repository) GetChatByID(ctx context.Context, chatID uuid.UUID) (*aggreg
 		if errors.Is(err, chats.ErrNotFound) {
 			return nil, domain.NewNotFound(err, "", "chatID", chatID.String())
 		}
+
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -149,6 +151,7 @@ func (r *Repository) DeleteChatByID(ctx context.Context, chatID uuid.UUID) error
 
 func (r *Repository) SaveChat(ctx context.Context, chat *aggregates.Chat) error {
 	const op = "repository.chatting.SaveChat"
+
 	err := r.manager.Do(ctx, func(ctx context.Context) error {
 		_, err := r.chat.GetByID(ctx, chat.ID)
 		switch {
@@ -177,6 +180,7 @@ func (r *Repository) SaveChat(ctx context.Context, chat *aggregates.Chat) error 
 
 func (r *Repository) SaveResult(ctx context.Context, result *aggregates.Result) error {
 	const op = "repository.chatting.SaveResult"
+
 	err := r.manager.Do(ctx, func(ctx context.Context) error {
 		_, err := r.command.GetByID(ctx, result.ID)
 		switch {
@@ -186,6 +190,8 @@ func (r *Repository) SaveResult(ctx context.Context, result *aggregates.Result) 
 				return err
 			}
 		case err != nil && !errors.Is(err, commands.ErrNotFound):
+			return err
+		default:
 			return err
 		}
 
@@ -213,7 +219,7 @@ func (r *Repository) GetModels(ctx context.Context) ([]*entities.Model, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	m := make([]*entities.Model, len(modelsList))
+	m := make([]*entities.Model, 0, len(modelsList))
 	for _, model := range modelsList {
 		m = append(m, &model)
 	}
@@ -222,10 +228,10 @@ func (r *Repository) GetModels(ctx context.Context) ([]*entities.Model, error) {
 }
 
 func (r *Repository) GetMediaByUrls(
-	ctx context.Context,
-	urls []*url.URL,
+	_ context.Context,
+	_ []*url.URL,
 ) ([]*entities.CommandMedia, error) {
-	const op = "repository.chatting.GetMediaByUrls"
+	const _ = "repository.chatting.GetMediaByUrls"
 
 	return nil, nil
 }
@@ -261,6 +267,7 @@ func (r *Repository) GetAllowedTools(ctx context.Context) ([]*entities.Tool, err
 	}
 
 	allowed := make([]*entities.Tool, 0, len(t))
+
 	id, ok := models2.GetUserIDFromCtx(ctx)
 	if !ok {
 		for _, m := range t {
@@ -294,7 +301,7 @@ func (r *Repository) GetAllowedTools(ctx context.Context) ([]*entities.Tool, err
 
 	if len(allowed) == 0 {
 		return nil, domain.NewForbidden(
-			domain.ZeroAllowedTools,
+			domain.ErrZeroAllowedTools,
 			fmt.Sprintf("%s: zero allowed tools", op),
 			"",
 			"",
@@ -313,6 +320,7 @@ func (r *Repository) GetAllowedModels(ctx context.Context) ([]*entities.Model, e
 	}
 
 	allowed := make([]*entities.Model, 0, len(mList))
+
 	id, ok := models2.GetUserIDFromCtx(ctx)
 	if !ok {
 		for _, m := range mList {
@@ -320,6 +328,7 @@ func (r *Repository) GetAllowedModels(ctx context.Context) ([]*entities.Model, e
 				allowed = append(allowed, &m)
 			}
 		}
+
 		return allowed, nil
 	}
 

@@ -1,10 +1,14 @@
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
-	ErrStreamClosed  = fmt.Errorf("stream closed")
-	ZeroAllowedTools = fmt.Errorf("zero allowed tools")
+	ErrStreamClosed      = errors.New("stream closed")
+	ErrZeroAllowedTools  = errors.New("zero allowed tools")
+	ErrThirdPartyService = errors.New("third party service")
 )
 
 type ValidationError struct {
